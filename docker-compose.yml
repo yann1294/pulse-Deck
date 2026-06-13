@@ -1,0 +1,47 @@
+# PulseDesk local infrastructure.
+# Copy server/.env.example to server/.env if you want to override these defaults.
+
+name: pulsedesk
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pulsedesk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DATABASE:-pulsedesk}
+      POSTGRES_USER: ${POSTGRES_USER:-pulsedesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulsedesk_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pulsedesk_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pulsedesk-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - pulsedesk_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pulsedesk_postgres_data:
+  pulsedesk_redis_data:
