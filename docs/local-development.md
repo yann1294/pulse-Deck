@@ -10,6 +10,8 @@ From the repository root:
 docker compose up -d
 ```
 
+Optional: copy `.env.example` to `.env` at the repository root before starting services if you want to override the local Docker defaults.
+
 Check service status:
 
 ```sh
