@@ -9,6 +9,8 @@
     "start": "node dist/main.js",
     "build": "nest build",
     "lint": "tsc -p tsconfig.json --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
     "test": "node --test"
   },
   "dependencies": {
@@ -16,6 +18,7 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@prisma/client": "^6.19.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.2",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@types/node": "^22.10.0",
+    "prisma": "^6.19.3",
     "typescript": "^5.5.4"
   }
 }
