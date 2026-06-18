@@ -105,7 +105,10 @@ model KnowledgeDocument {
   title       String
   fileName    String
   mimeType    String
+  sourceType  String                      @default("seed")
+  sourceName  String                      @default("seed")
   content     String
+  chunkIndex  Int                         @default(0)
   embedding   Unsupported("vector(768)")?
   sourceUrl   String?
   isActive    Boolean                     @default(true)
@@ -115,6 +118,8 @@ model KnowledgeDocument {
 
   @@index([isActive])
   @@index([mimeType])
+  @@index([sourceName])
+  @@index([sourceName, chunkIndex])
   @@index([createdAt])
 }
 
