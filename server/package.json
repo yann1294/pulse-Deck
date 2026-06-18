@@ -16,7 +16,7 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "node --test"
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@clerk/backend": "^3.8.0",
@@ -28,6 +28,7 @@
     "@pulsedesk/shared": "workspace:*",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "pdf-parse": "^2.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
