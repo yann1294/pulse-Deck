@@ -41,6 +41,15 @@ type TicketWithCustomerAndLatestSuggestion = Prisma.TicketGetPayload<{
   };
 }>;
 
+type TicketWithLatestSuggestion = Prisma.TicketGetPayload<{
+  include: {
+    aiSuggestions: {
+      orderBy: { createdAt: "desc" };
+      take: 1;
+    };
+  };
+}>;
+
 type TicketWithDetailRelations = Prisma.TicketGetPayload<{
   include: {
     customer: {
@@ -49,8 +58,15 @@ type TicketWithDetailRelations = Prisma.TicketGetPayload<{
           select: { tickets: true };
         };
         tickets: {
+          where: { id: { not: string } };
           orderBy: { createdAt: "desc" };
-          take: 10;
+          take: 5;
+          include: {
+            aiSuggestions: {
+              orderBy: { createdAt: "desc" };
+              take: 1;
+            };
+          };
         };
       };
     };
@@ -60,10 +76,10 @@ type TicketWithDetailRelations = Prisma.TicketGetPayload<{
   };
 }>;
 
-export interface TicketDetailDTO extends TicketDTO {
-  customer: CustomerDTO & {
-    ticketHistory: TicketDTO[];
-  };
+export interface AdminTicketDetailDTO {
+  ticket: TicketDTO;
+  customer: CustomerDTO;
+  customerHistory: TicketDTO[];
   aiSuggestions: AiSuggestionDTO[];
 }
 
@@ -147,7 +163,7 @@ export class TicketsService {
     };
   }
 
-  async getTicket(id: string): Promise<TicketDetailDTO> {
+  async getTicketById(id: string): Promise<AdminTicketDetailDTO> {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id },
       include: {
@@ -157,8 +173,19 @@ export class TicketsService {
               select: { tickets: true }
             },
             tickets: {
+              where: {
+                id: {
+                  not: id
+                }
+              },
               orderBy: { createdAt: "desc" },
-              take: 10
+              take: 5,
+              include: {
+                aiSuggestions: {
+                  orderBy: { createdAt: "desc" },
+                  take: 1
+                }
+              }
             }
           }
         },
@@ -243,23 +270,23 @@ export class TicketsService {
     return where;
   }
 
-  private toTicketDetailDto(ticket: TicketWithDetailRelations): TicketDetailDTO {
+  private toTicketDetailDto(ticket: TicketWithDetailRelations): AdminTicketDetailDTO {
     const customer = this.toCustomerDto(ticket.customer);
-    const ticketHistory = ticket.customer.tickets
-      .filter((historyTicket) => historyTicket.id !== ticket.id)
-      .map((historyTicket) => this.toTicketDto(historyTicket));
 
     return {
-      ...this.toTicketDto(ticket),
-      customer: {
-        ...customer,
-        ticketHistory
-      },
+      ticket: this.toTicketDto(ticket),
+      customer,
+      customerHistory: ticket.customer.tickets.map((historyTicket) => this.toTicketDto(historyTicket)),
       aiSuggestions: ticket.aiSuggestions.map((suggestion) => this.toAiSuggestionDto(suggestion))
     };
   }
 
-  private toTicketDto(ticket: TicketWithCustomerAndLatestSuggestion | Prisma.TicketGetPayload<{}>): TicketDTO {
+  private toTicketDto(
+    ticket:
+      | TicketWithCustomerAndLatestSuggestion
+      | TicketWithLatestSuggestion
+      | Prisma.TicketGetPayload<{}>
+  ): TicketDTO {
     const latestAiSuggestion =
       "aiSuggestions" in ticket && ticket.aiSuggestions[0]
         ? this.toAiSuggestionSummaryDto(ticket.aiSuggestions[0])

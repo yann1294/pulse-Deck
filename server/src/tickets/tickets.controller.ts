@@ -4,7 +4,7 @@ import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { CreateTicketDto } from "./dto/create-ticket.dto";
 import { ListTicketsQueryDto } from "./dto/list-tickets-query.dto";
 import { UpdateTicketStatusDto } from "./dto/update-ticket-status.dto";
-import { TicketsService, type TicketDetailDTO } from "./tickets.service";
+import { TicketsService, type AdminTicketDetailDTO } from "./tickets.service";
 
 @Controller("tickets")
 export class TicketsController {
@@ -23,8 +23,8 @@ export class TicketsController {
 
   @Get(":id")
   @UseGuards(ClerkAuthGuard)
-  getTicket(@Param("id") id: string): Promise<TicketDetailDTO> {
-    return this.ticketsService.getTicket(id);
+  getTicket(@Param("id") id: string): Promise<AdminTicketDetailDTO> {
+    return this.ticketsService.getTicketById(id);
   }
 
   @Patch(":id/status")
