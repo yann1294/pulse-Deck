@@ -1,34 +1,42 @@
-import type { AiSuggestionDTO } from "./ai.types.js";
+import type { AiSuggestionDTO, AiSuggestionStatus } from "./ai.types.js";
 import type { CustomerDTO } from "./customer.types.js";
 
 export type TicketStatus =
-  | "new"
   | "open"
   | "in_progress"
-  | "waiting_on_customer"
-  | "resolved"
-  | "closed";
+  | "waiting_customer"
+  | "resolved";
 
-export type TicketPriority = "low" | "normal" | "high" | "urgent";
+export type TicketPriority = "low" | "medium" | "high" | "urgent";
 
 export type TicketCategory =
-  | "general"
   | "billing"
   | "technical"
   | "account"
+  | "bug"
   | "feature_request"
-  | "bug";
+  | "other";
 
 export interface TicketDTO {
   id: string;
   subject: string;
   description: string;
+  attachmentUrl?: string;
   status: TicketStatus;
   priority: TicketPriority;
   category: TicketCategory;
   customerId: string;
   customer?: CustomerDTO;
+  latestAiSuggestion?: AiSuggestionSummaryDTO;
   aiSuggestions?: AiSuggestionDTO[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AiSuggestionSummaryDTO {
+  id: string;
+  status: AiSuggestionStatus;
+  suggestedReply?: string;
+  confidenceScore?: number;
+  createdAt: string;
 }

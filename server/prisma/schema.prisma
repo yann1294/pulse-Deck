@@ -75,6 +75,7 @@ model Ticket {
   id              String               @id @default(cuid())
   subject         String
   description     String
+  attachmentUrl   String?
   status          TicketStatus         @default(OPEN)
   priority        TicketPriority       @default(MEDIUM)
   category        TicketCategory       @default(OTHER)

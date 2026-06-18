@@ -1,12 +1,12 @@
 import type { TicketCategory, TicketPriority } from "./ticket.types.js";
 
-export type AiSuggestionStatus = "pending" | "ready" | "failed" | "approved" | "rejected";
+export type AiSuggestionStatus = "pending" | "generated" | "approved" | "edited" | "failed";
 
 export interface AiSuggestionDTO {
   id: string;
   ticketId: string;
   status: AiSuggestionStatus;
-  suggestedReply: string;
+  suggestedReply?: string;
   suggestedCategory?: TicketCategory;
   suggestedPriority?: TicketPriority;
   confidenceScore?: number;
