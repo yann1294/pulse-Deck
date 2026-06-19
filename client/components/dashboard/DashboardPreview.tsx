@@ -23,7 +23,7 @@ const tickets = [
 
 export function DashboardPreview() {
   return (
-    <div id="dashboard" className="rounded-[2rem] border border-white/10 bg-zinc-950/80 p-3 shadow-glow">
+    <div id="dashboard" className="min-w-0 rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-2 shadow-glow sm:rounded-[2rem] sm:p-3">
       <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950">
         <div className="flex flex-col gap-4 border-b border-zinc-800 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -38,7 +38,7 @@ export function DashboardPreview() {
             </ButtonLink>
           </div>
         </div>
-        <div className="grid gap-3 p-3 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid min-w-0 gap-3 p-2 sm:p-3 lg:grid-cols-[1.2fr_0.8fr]">
           <SectionCard
             title="Priority tickets"
             description="Sorted by freshness and impact"
@@ -55,8 +55,8 @@ export function DashboardPreview() {
                   key={ticket.title}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-zinc-100">{ticket.title}</h3>
+                    <div className="min-w-0">
+                      <h3 className="break-words text-sm font-semibold text-zinc-100">{ticket.title}</h3>
                       <p className="mt-1 text-xs text-zinc-500">{ticket.customer}</p>
                     </div>
                     <Badge tone={ticket.priority === "Urgent" ? "amber" : "emerald"}>

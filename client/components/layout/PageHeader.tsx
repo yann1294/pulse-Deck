@@ -27,7 +27,7 @@ export function PageHeader({
         {eyebrow ? <Badge tone={isLight ? "zinc" : "emerald"}>{eyebrow}</Badge> : null}
         <h1
           className={cn(
-            "mt-4 max-w-4xl text-balance text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl",
+            "mt-4 max-w-4xl break-words text-balance text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl",
             isLight ? "text-zinc-950" : "text-white"
           )}
         >
@@ -44,7 +44,7 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
+      {actions ? <div className="flex w-full flex-wrap gap-3 sm:w-auto">{actions}</div> : null}
     </div>
   );
 }

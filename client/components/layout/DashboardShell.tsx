@@ -29,7 +29,7 @@ export function DashboardShell({
       <Sidebar activeHref={activeHref} items={navItems} />
       <div className="min-w-0 flex-1">
         <Topbar activeHref={activeHref} items={navItems} title={title} />
-        <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[96rem] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

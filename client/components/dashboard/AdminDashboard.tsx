@@ -280,14 +280,14 @@ function TicketResults({
       <div className="grid gap-3 lg:hidden">
         {tickets.map((ticket) => (
           <button
-            className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left shadow-panel transition hover:border-zinc-700 hover:bg-zinc-900/80"
+            className="min-h-11 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left shadow-panel transition hover:border-zinc-700 hover:bg-zinc-900/80"
             key={ticket.id}
             onClick={() => onOpenTicket(ticket.id)}
             type="button"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="line-clamp-2 text-sm font-semibold text-zinc-100">{ticket.subject}</h3>
+                <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</h3>
                 <p className="mt-1 text-xs text-zinc-500">
                   {ticket.customer?.name ?? "Unknown customer"} · {formatDate(ticket.createdAt)}
                 </p>

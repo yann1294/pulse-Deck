@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-type BadgeTone = "neutral" | "emerald" | "teal" | "amber" | "rose" | "red" | "zinc";
+type BadgeTone = "neutral" | "emerald" | "teal" | "amber" | "rose" | "zinc";
 
 const toneClasses: Record<BadgeTone, string> = {
   neutral: "border-zinc-700 bg-zinc-900 text-zinc-200",
@@ -9,7 +9,6 @@ const toneClasses: Record<BadgeTone, string> = {
   teal: "border-teal-400/30 bg-teal-400/10 text-teal-200",
   amber: "border-amber-400/30 bg-amber-400/10 text-amber-200",
   rose: "border-rose-400/30 bg-rose-400/10 text-rose-200",
-  red: "border-red-400/30 bg-red-400/10 text-red-200",
   zinc: "border-zinc-300 bg-white text-zinc-700"
 };
 
@@ -21,7 +20,7 @@ export function Badge({ className, tone = "neutral", ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+        "inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-xs font-semibold leading-5",
         toneClasses[tone],
         className
       )}

@@ -30,12 +30,13 @@ export function PublicNavbar() {
             </a>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <ButtonLink className="hidden sm:inline-flex" href="/submit-ticket" size="sm" variant="ghost">
             Submit Ticket
           </ButtonLink>
           <ButtonLink href="/dashboard" size="sm" variant="secondary">
-            View Dashboard
+            <span className="sm:hidden">Dashboard</span>
+            <span className="hidden sm:inline">View Dashboard</span>
           </ButtonLink>
         </div>
       </div>

@@ -13,9 +13,9 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-5 text-base"
+  sm: "min-h-11 px-3.5 py-2 text-sm",
+  md: "min-h-11 px-4 py-2 text-sm",
+  lg: "min-h-12 px-5 py-3 text-base"
 };
 
 interface BaseButtonProps {
@@ -31,7 +31,7 @@ export type ButtonLinkProps = BaseButtonProps & AnchorHTMLAttributes<HTMLAnchorE
 export function Button(props: ButtonProps) {
   const { children, className, variant = "primary", size = "md", ...buttonProps } = props;
   const classes = cn(
-    "focus-ring inline-flex items-center justify-center rounded-full font-semibold transition disabled:pointer-events-none disabled:opacity-50",
+    "focus-ring inline-flex max-w-full items-center justify-center rounded-full text-center font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-50",
     variantClasses[variant],
     sizeClasses[size],
     className
@@ -47,7 +47,7 @@ export function Button(props: ButtonProps) {
 export function ButtonLink(props: ButtonLinkProps) {
   const { children, className, variant = "primary", size = "md", ...anchorProps } = props;
   const classes = cn(
-    "focus-ring inline-flex items-center justify-center rounded-full font-semibold transition",
+    "focus-ring inline-flex max-w-full items-center justify-center rounded-full text-center font-semibold leading-tight transition",
     variantClasses[variant],
     sizeClasses[size],
     className

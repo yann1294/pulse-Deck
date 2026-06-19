@@ -143,7 +143,7 @@ export function KnowledgeBaseWorkspace() {
         <div className="space-y-6">
           <Card className="p-4 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-base font-semibold text-white">Upload documents</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
                   PulseDesk extracts text, creates overlapping chunks, embeds each chunk, and stores
@@ -193,6 +193,7 @@ export function KnowledgeBaseWorkspace() {
                 Safety note: Do not upload sensitive production data in demo mode.
               </p>
               <Button
+                className="w-full sm:w-auto"
                 disabled={uploadMutation.isPending}
                 onClick={() => fileInputRef.current?.click()}
                 type="button"
@@ -313,7 +314,7 @@ function DocumentResults({ documents }: { documents: KnowledgeDocumentGroupDTO[]
           <Card className="p-4" key={getDocumentKey(document)}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="line-clamp-2 text-sm font-semibold text-white">{document.title}</h3>
+                <h3 className="line-clamp-2 break-words text-sm font-semibold text-white">{document.title}</h3>
                 <p className="mt-1 truncate text-xs text-zinc-500">{document.sourceName}</p>
               </div>
               <IngestionStatusBadge status="ready" />

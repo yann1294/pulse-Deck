@@ -59,12 +59,12 @@ export function CustomerTicketForm() {
 
   if (hasSubmitted) {
     return (
-      <Card className="p-6 sm:p-8">
+      <Card className="p-5 sm:p-8">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400 text-2xl font-bold text-zinc-950">
           ✓
         </div>
         <Badge className="mt-6" tone="emerald">Ticket received</Badge>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+        <h2 className="mt-4 text-xl font-semibold tracking-tight text-white sm:text-2xl">
           Your ticket was submitted. Our team will review it shortly.
         </h2>
         <p className="mt-3 text-sm leading-6 text-zinc-400">
@@ -196,7 +196,7 @@ export function CustomerTicketForm() {
         </Button>
 
         {ticketMutation.isError ? (
-          <p className="text-center text-sm text-red-200">
+          <p className="text-center text-sm text-rose-200">
             {getUserFriendlyErrorMessage(ticketMutation.error)}
           </p>
         ) : null}
@@ -224,7 +224,7 @@ function Field({ children, label, error, helperText, required }: FieldProps) {
       </span>
       <span className="mt-2 block">{children}</span>
       {error ? (
-        <span className="mt-2 block text-sm text-red-300">{error}</span>
+        <span className="mt-2 block text-sm text-rose-300">{error}</span>
       ) : helperText ? (
         <span className="mt-2 block text-xs leading-5 text-zinc-500">{helperText}</span>
       ) : null}
@@ -290,5 +290,5 @@ function toCreateTicketInput(values: TicketFormValues): CreateTicketInput {
 }
 
 function getFieldClassName(error: string | undefined): string {
-  return cn(error && "border-red-400/70 focus-visible:ring-red-300");
+  return cn(error && "border-rose-400/70 focus-visible:ring-rose-300");
 }

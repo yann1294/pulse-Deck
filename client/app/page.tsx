@@ -60,22 +60,22 @@ export default function Home() {
     <div className="app-background">
       <PublicNavbar />
       <main>
-        <section className="page-shell pb-16 pt-14 sm:pb-20 sm:pt-20 lg:pb-28">
-          <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="page-shell pb-14 pt-12 sm:pb-20 sm:pt-20 lg:pb-28">
+          <div className="grid min-w-0 items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
             <div>
               <PageHeader
                 eyebrow="AI support ticketing SaaS"
                 title="PulseDesk turns support queues into reviewed, context-aware reply workflows."
                 description="A portfolio-ready B2B support desk MVP with background AI triage, knowledge-base retrieval, and human-approved response drafting."
-	                actions={
-	                  <>
-	                    <ButtonLink href="/submit-ticket" size="lg">
-	                      Submit Demo Ticket
-	                    </ButtonLink>
-	                    <ButtonLink href="/dashboard" size="lg" variant="secondary">
-	                      View Admin Dashboard
-	                    </ButtonLink>
-	                  </>
+                actions={
+                  <>
+                    <ButtonLink className="w-full sm:w-auto" href="/submit-ticket" size="lg">
+                      Submit Demo Ticket
+                    </ButtonLink>
+                    <ButtonLink className="w-full sm:w-auto" href="/dashboard" size="lg" variant="secondary">
+                      View Admin Dashboard
+                    </ButtonLink>
+                  </>
                 }
               />
               <div className="mt-8 flex flex-wrap gap-2">
@@ -88,11 +88,11 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="product" className="bg-zinc-50 py-16 text-zinc-950 sm:py-20">
+        <section id="product" className="bg-zinc-50 py-14 text-zinc-950 sm:py-20">
           <div className="page-shell">
             <div className="max-w-2xl">
               <Badge tone="zinc">Product value</Badge>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-4xl">
                 Everything needed to demo credible AI support operations.
               </h2>
               <p className="mt-4 text-base leading-7 text-zinc-600">
@@ -102,7 +102,7 @@ export default function Home() {
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-3">
               {valueProps.map((item) => (
-                <Card className="border-zinc-200 bg-white p-6 text-zinc-950" key={item.title}>
+                <Card className="border-zinc-200 bg-white p-5 text-zinc-950 sm:p-6" key={item.title}>
                   <div className="h-10 w-10 rounded-2xl bg-emerald-100 ring-1 ring-emerald-200" />
                   <h3 className="mt-5 text-lg font-semibold">{item.title}</h3>
                   <p className="mt-3 text-sm leading-6 text-zinc-600">{item.description}</p>
@@ -112,12 +112,12 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="workflow" className="bg-white py-16 text-zinc-950 sm:py-20">
+        <section id="workflow" className="bg-white py-14 text-zinc-950 sm:py-20">
           <div className="page-shell">
             <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
               <div>
                 <Badge tone="zinc">Workflow</Badge>
-                <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+                <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-4xl">
                   Designed around support teams, not fully automated replies.
                 </h2>
               </div>
@@ -139,9 +139,9 @@ export default function Home() {
           </div>
         </section>
 
-	        <section className="bg-zinc-50 py-16 text-zinc-950 sm:py-20">
-	          <div className="page-shell grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-	            <Card className="border-zinc-200 bg-white p-6 text-zinc-950">
+        <section className="bg-zinc-50 py-14 text-zinc-950 sm:py-20">
+          <div className="page-shell grid min-w-0 gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <Card className="border-zinc-200 bg-white p-5 text-zinc-950 sm:p-6">
 	              <Badge tone="zinc">Public customer flow</Badge>
 	              <h2 className="mt-4 text-2xl font-semibold tracking-tight">
 	                Submit a ticket through the customer support portal.
@@ -150,18 +150,20 @@ export default function Home() {
 	                The public intake page posts directly to the PulseDesk API and queues AI triage
 	                jobs while keeping all replies human-reviewed.
 	              </p>
-	              <div className="mt-6 flex flex-wrap gap-3">
-	                <ButtonLink href="/submit-ticket">Open ticket submission</ButtonLink>
-	                <ButtonLink href="/dashboard" variant="secondary">
-	                  Review in dashboard
-	                </ButtonLink>
-	              </div>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <ButtonLink className="w-full sm:w-auto" href="/submit-ticket">
+                  Open ticket submission
+                </ButtonLink>
+                <ButtonLink className="w-full sm:w-auto" href="/dashboard" variant="secondary">
+                  Review in dashboard
+                </ButtonLink>
+              </div>
 	            </Card>
 	            <KnowledgeBasePreview />
 	          </div>
 	        </section>
 
-        <section id="stack" className="bg-zinc-950 py-16 sm:py-20">
+        <section id="stack" className="bg-zinc-950 py-14 sm:py-20">
           <div className="page-shell">
             <SectionCard
               title="Portfolio-grade implementation stack"
@@ -178,7 +180,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="safety" className="bg-zinc-950 pb-20">
+        <section id="safety" className="bg-zinc-950 pb-16 sm:pb-20">
           <div className="page-shell">
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-6 sm:p-8">
               <Badge tone="emerald">AI safety and limitations</Badge>

@@ -14,7 +14,7 @@ export function Textarea({ className, tone = "dark", ...props }: TextareaProps) 
   return (
     <textarea
       className={cn(
-        "focus-ring min-h-28 w-full resize-y rounded-xl border px-3 py-3 text-sm transition",
+        "focus-ring min-h-32 w-full min-w-0 resize-y rounded-xl border px-3 py-3 text-sm transition",
         toneClasses[tone],
         className
       )}

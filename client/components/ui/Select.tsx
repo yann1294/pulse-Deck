@@ -14,7 +14,7 @@ export function Select({ className, children, tone = "dark", ...props }: SelectP
   return (
     <select
       className={cn(
-        "focus-ring h-11 w-full rounded-xl border px-3 text-sm transition",
+        "focus-ring min-h-11 w-full min-w-0 rounded-xl border px-3 text-sm transition",
         toneClasses[tone],
         className
       )}

@@ -9,6 +9,8 @@ build/
 out/
 .turbo/
 coverage/
+playwright-report/
+test-results/
 
 # TypeScript
 *.tsbuildinfo

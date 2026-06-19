@@ -95,8 +95,9 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
         <>
           <PageHeader
             actions={
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                 <Button
+                  className="w-full sm:w-auto"
                   disabled={generateMutation.isPending}
                   onClick={() => generateMutation.mutate()}
                   type="button"
@@ -104,6 +105,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
                   {generateMutation.isPending ? "Generating..." : "Generate AI suggestion"}
                 </Button>
                 <Button
+                  className="w-full sm:w-auto"
                   disabled={resolveMutation.isPending || ticket.status === "resolved"}
                   onClick={() => resolveMutation.mutate()}
                   type="button"
@@ -119,7 +121,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
           />
 
           {actionMessage ? (
-            <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+            <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-100">
               {actionMessage}
             </div>
           ) : null}
@@ -175,7 +177,7 @@ function TicketOverview({ ticket }: { ticket: NonNullable<Awaited<ReturnType<typ
         </div>
       </div>
       <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-        <p className="whitespace-pre-wrap text-sm leading-7 text-zinc-200">{ticket.description}</p>
+        <p className="whitespace-pre-wrap break-words text-sm leading-7 text-zinc-200">{ticket.description}</p>
       </div>
     </Card>
   );
@@ -210,9 +212,9 @@ function CustomerPanel({
             ) : (
               history.map((ticket) => (
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4" key={ticket.id}>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-zinc-100">{ticket.subject}</p>
+                      <p className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</p>
                       <p className="mt-1 text-xs text-zinc-500">{formatDate(ticket.createdAt)}</p>
                     </div>
                     <StatusBadge status={ticket.status} />
@@ -244,8 +246,8 @@ function AiSuggestionPanel({
   return (
     <aside className="space-y-4">
       <Card className="border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 to-zinc-950 p-5 shadow-glow">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <Badge tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
               {suggestion ? formatAiStatus(suggestion.status) : "Needs review"}
             </Badge>
@@ -255,7 +257,7 @@ function AiSuggestionPanel({
             </p>
           </div>
           {suggestion?.confidenceScore !== undefined ? (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-right">
+            <div className="self-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-left sm:text-right">
               <p className="text-xs text-zinc-500">Confidence</p>
               <p className="text-lg font-semibold text-emerald-200">
                 {Math.round(suggestion.confidenceScore * 100)}%
@@ -272,7 +274,7 @@ function AiSuggestionPanel({
           </PanelBlock>
 
           <PanelBlock title="Suggested reply">
-            <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-200">
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">
               {suggestion?.suggestedReply ?? "Generate an AI suggestion to draft a reply."}
             </p>
           </PanelBlock>
@@ -295,7 +297,7 @@ function AiSuggestionPanel({
       </Card>
 
       <Card className="p-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-white">Retrieved knowledge</h3>
           <Badge tone={snippets.length > 0 ? "teal" : "amber"}>
             {snippets.length > 0 ? `${snippets.length} snippets` : "Needs manual verification"}
@@ -313,8 +315,8 @@ function AiSuggestionPanel({
                 key={`${snippet.id}-${index}`}
               >
                 <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-100">
-                  <span className="flex items-start justify-between gap-3">
-                    <span>{snippet.title || `Snippet ${index + 1}`}</span>
+                  <span className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <span className="break-words">{snippet.title || `Snippet ${index + 1}`}</span>
                     {snippet.score !== undefined ? (
                       <span className="text-xs font-medium text-zinc-500">
                         {Math.round(snippet.score * 100)}%
@@ -325,7 +327,7 @@ function AiSuggestionPanel({
                     <span className="mt-1 block text-xs font-normal text-zinc-500">{snippet.sourceName}</span>
                   ) : null}
                 </summary>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">{snippet.content}</p>
+                <p className="mt-3 break-words text-sm leading-6 text-zinc-400">{snippet.content}</p>
               </details>
             ))
           )}
@@ -360,7 +362,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-zinc-200">{value}</p>
+      <p className="mt-1 break-words text-zinc-200">{value}</p>
     </div>
   );
 }
