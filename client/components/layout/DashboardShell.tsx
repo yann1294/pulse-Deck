@@ -7,7 +7,7 @@ const defaultItems: NavItem[] = [
   { label: "Overview", href: "/dashboard" },
   { label: "Tickets", href: "/dashboard/tickets" },
   { label: "Customers", href: "/dashboard/customers" },
-  { label: "Knowledge Base", href: "/dashboard/knowledge-base" },
+  { label: "Knowledge Base", href: "/knowledge-base" },
   { label: "AI Suggestions", href: "/dashboard/ai" }
 ];
 
