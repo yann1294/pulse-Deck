@@ -17,6 +17,8 @@ export type TicketCategory =
   | "feature_request"
   | "other";
 
+export type TicketAiStatus = "PENDING" | "GENERATED" | "APPROVED" | "EDITED" | "FAILED";
+
 export interface TicketDTO {
   id: string;
   subject: string;
@@ -27,6 +29,7 @@ export interface TicketDTO {
   category: TicketCategory;
   customerId: string;
   customer?: CustomerDTO;
+  aiStatus?: TicketAiStatus;
   latestAiSuggestion?: AiSuggestionSummaryDTO;
   aiSuggestions?: AiSuggestionDTO[];
   createdAt: string;
