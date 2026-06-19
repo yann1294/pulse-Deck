@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  ACCOUNT
+  BUG
+  FEATURE_REQUEST
+  OTHER
+}
+
+enum AiSuggestionStatus {
+  PENDING
+  GENERATED
+  APPROVED
+  EDITED
+  FAILED
+}
+
+model User {
+  id              String   @id @default(cuid())
+  clerkUserId     String   @unique
+  email           String   @unique
+  name            String?
+  role            UserRole @default(CUSTOMER)
+  assignedTickets Ticket[] @relation("AssignedAdminTickets")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  companyName String?
+  externalId  String?  @unique
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([companyName])
+}
+
+model Ticket {
+  id              String               @id @default(cuid())
+  subject         String
+  description     String
+  attachmentUrl   String?
+  status          TicketStatus         @default(OPEN)
+  priority        TicketPriority       @default(MEDIUM)
+  category        TicketCategory       @default(OTHER)
+  customerId      String
+  assignedAdminId String?
+  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedAdmin   User?                @relation("AssignedAdminTickets", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  aiSuggestions   TicketAiSuggestion[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  resolvedAt      DateTime?
+
+  @@index([customerId])
+  @@index([assignedAdminId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([status, priority, createdAt])
+  @@index([status, category, createdAt])
+  @@index([assignedAdminId, status, updatedAt])
+}
+
+model KnowledgeDocument {
+  id          String                      @id @default(cuid())
+  title       String
+  fileName    String
+  mimeType    String
+  sourceType  String                      @default("seed")
+  sourceName  String                      @default("seed")
+  content     String
+  chunkIndex  Int                         @default(0)
+  embedding   Unsupported("vector(768)")?
+  sourceUrl   String?
+  isActive    Boolean                     @default(true)
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+  suggestions TicketAiSuggestion[]
+
+  @@index([isActive])
+  @@index([mimeType])
+  @@index([sourceName])
+  @@index([sourceName, chunkIndex])
+  @@index([createdAt])
+}
+
+model TicketAiSuggestion {
+  id                  String             @id @default(cuid())
+  ticketId            String
+  knowledgeDocumentId String?
+  status              AiSuggestionStatus @default(PENDING)
+  suggestedReply      String?
+  suggestedCategory   TicketCategory?
+  suggestedPriority   TicketPriority?
+  confidenceScore     Float?
+  errorMessage        String?
+  ragSnippets         Json?
+  retrievedContext    Json?
+  ticket              Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  knowledgeDocument   KnowledgeDocument? @relation(fields: [knowledgeDocumentId], references: [id], onDelete: SetNull)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([ticketId])
+  @@index([knowledgeDocumentId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([ticketId, status, createdAt])
+}
