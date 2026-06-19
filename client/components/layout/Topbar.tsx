@@ -1,3 +1,4 @@
+import { UserButton } from "@clerk/nextjs";
 import type { NavItem } from "@/types/navigation";
 import { Badge } from "@/components/ui";
 import { MobileNav } from "./MobileNav";
@@ -17,7 +18,14 @@ export function Topbar({ items, activeHref, title = "Dashboard" }: TopbarProps) 
           <p className="hidden text-xs text-zinc-500 sm:block">AI-assisted support operations</p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge tone="emerald">AI review only</Badge>
+          <Badge className="hidden sm:inline-flex" tone="emerald">AI review only</Badge>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "h-9 w-9 rounded-full ring-2 ring-emerald-400/30"
+              }
+            }}
+          />
           <MobileNav activeHref={activeHref} items={items} />
         </div>
       </div>

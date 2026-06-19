@@ -10,6 +10,7 @@
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.6",
     "@pulsedesk/shared": "workspace:*",
     "next": "^16.0.0",
     "react": "^19.0.0",
