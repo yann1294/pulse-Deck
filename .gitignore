@@ -39,7 +39,6 @@ docker-data/
 
 # Next.js
 .vercel/
-next-env.d.ts
 
 # NestJS
 *.local
