@@ -1,4 +1,4 @@
-import { Badge, SectionCard } from "@/components/ui";
+import { Badge, ButtonLink, SectionCard } from "@/components/ui";
 
 const tickets = [
   {
@@ -30,13 +30,24 @@ export function DashboardPreview() {
             <p className="text-sm font-semibold text-white">Admin queue</p>
             <p className="mt-1 text-xs text-zinc-500">Live ticket triage with AI assistance</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Badge tone="emerald">12 open</Badge>
             <Badge tone="teal">5 AI ready</Badge>
+            <ButtonLink href="/dashboard" size="sm" variant="secondary">
+              Open dashboard
+            </ButtonLink>
           </div>
         </div>
         <div className="grid gap-3 p-3 lg:grid-cols-[1.2fr_0.8fr]">
-          <SectionCard title="Priority tickets" description="Sorted by freshness and impact">
+          <SectionCard
+            title="Priority tickets"
+            description="Sorted by freshness and impact"
+            action={
+              <ButtonLink href="/dashboard" size="sm" variant="ghost">
+                View queue
+              </ButtonLink>
+            }
+          >
             <div className="space-y-3">
               {tickets.map((ticket) => (
                 <div
@@ -60,7 +71,15 @@ export function DashboardPreview() {
               ))}
             </div>
           </SectionCard>
-          <SectionCard title="AI suggestion" description="Grounded in uploaded knowledge">
+          <SectionCard
+            title="AI suggestion"
+            description="Grounded in uploaded knowledge"
+            action={
+              <ButtonLink href="/dashboard" size="sm" variant="ghost">
+                Review drafts
+              </ButtonLink>
+            }
+          >
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
                 Draft ready

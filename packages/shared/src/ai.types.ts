@@ -6,11 +6,14 @@ export interface AiSuggestionDTO {
   id: string;
   ticketId: string;
   status: AiSuggestionStatus;
+  summary?: string;
   suggestedReply?: string;
   suggestedCategory?: TicketCategory;
   suggestedPriority?: TicketPriority;
   confidenceScore?: number;
   citations: KnowledgeSnippetDTO[];
+  ragSnippets?: unknown;
+  retrievedContext?: unknown;
   errorMessage?: string;
   createdAt: string;
   updatedAt: string;

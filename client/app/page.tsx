@@ -2,7 +2,6 @@ import { DashboardPreview } from "@/components/dashboard/DashboardPreview";
 import { KnowledgeBasePreview } from "@/components/knowledge-base/KnowledgeBasePreview";
 import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
-import { DemoTicketCta } from "@/components/tickets/DemoTicketCta";
 import { Badge, ButtonLink, Card, PageHeader, SectionCard } from "@/components/ui";
 
 const valueProps = [
@@ -68,15 +67,15 @@ export default function Home() {
                 eyebrow="AI support ticketing SaaS"
                 title="PulseDesk turns support queues into reviewed, context-aware reply workflows."
                 description="A portfolio-ready B2B support desk MVP with background AI triage, knowledge-base retrieval, and human-approved response drafting."
-                actions={
-                  <>
-                    <ButtonLink href="#submit-ticket" size="lg">
-                      Submit Demo Ticket
-                    </ButtonLink>
-                    <ButtonLink href="#dashboard" size="lg" variant="secondary">
-                      View Admin Dashboard
-                    </ButtonLink>
-                  </>
+	                actions={
+	                  <>
+	                    <ButtonLink href="/submit-ticket" size="lg">
+	                      Submit Demo Ticket
+	                    </ButtonLink>
+	                    <ButtonLink href="/dashboard" size="lg" variant="secondary">
+	                      View Admin Dashboard
+	                    </ButtonLink>
+	                  </>
                 }
               />
               <div className="mt-8 flex flex-wrap gap-2">
@@ -140,14 +139,27 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bg-zinc-50 py-16 text-zinc-950 sm:py-20">
-          <div className="page-shell grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div id="submit-ticket">
-              <DemoTicketCta />
-            </div>
-            <KnowledgeBasePreview />
-          </div>
-        </section>
+	        <section className="bg-zinc-50 py-16 text-zinc-950 sm:py-20">
+	          <div className="page-shell grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+	            <Card className="border-zinc-200 bg-white p-6 text-zinc-950">
+	              <Badge tone="zinc">Public customer flow</Badge>
+	              <h2 className="mt-4 text-2xl font-semibold tracking-tight">
+	                Submit a ticket through the customer support portal.
+	              </h2>
+	              <p className="mt-3 text-sm leading-6 text-zinc-600">
+	                The public intake page posts directly to the PulseDesk API and queues AI triage
+	                jobs while keeping all replies human-reviewed.
+	              </p>
+	              <div className="mt-6 flex flex-wrap gap-3">
+	                <ButtonLink href="/submit-ticket">Open ticket submission</ButtonLink>
+	                <ButtonLink href="/dashboard" variant="secondary">
+	                  Review in dashboard
+	                </ButtonLink>
+	              </div>
+	            </Card>
+	            <KnowledgeBasePreview />
+	          </div>
+	        </section>
 
         <section id="stack" className="bg-zinc-950 py-16 sm:py-20">
           <div className="page-shell">

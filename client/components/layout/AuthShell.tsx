@@ -9,7 +9,10 @@ interface AuthShellProps {
 
 export function AuthShell({ children, mode }: AuthShellProps) {
   return (
-    <main className="app-background min-h-screen px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
+    <main className="relative isolate min-h-screen overflow-hidden bg-zinc-950 px-4 py-8 text-zinc-100 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-zinc-950 to-zinc-900" />
+      <div className="pointer-events-none absolute -left-28 top-0 -z-10 h-96 w-96 rounded-full bg-teal-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-28 top-10 -z-10 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="mx-auto w-full max-w-xl text-center lg:text-left">
           <Link className="focus-ring inline-flex items-center gap-3 rounded-full" href="/">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { NavItem } from "@/types/navigation";
 import { ButtonLink } from "@/components/ui";
 
@@ -12,12 +13,12 @@ export function PublicNavbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/75 backdrop-blur-xl">
       <div className="page-shell flex h-16 items-center justify-between gap-4">
-        <a href="#" className="focus-ring flex min-w-0 items-center gap-3 rounded-full">
+        <Link href="/" className="focus-ring flex min-w-0 items-center gap-3 rounded-full">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 text-sm font-black text-zinc-950">
             P
           </span>
           <span className="truncate text-sm font-semibold tracking-tight text-white">PulseDesk</span>
-        </a>
+        </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
             <a
@@ -30,10 +31,10 @@ export function PublicNavbar() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <ButtonLink className="hidden sm:inline-flex" href="#submit-ticket" size="sm" variant="ghost">
+          <ButtonLink className="hidden sm:inline-flex" href="/submit-ticket" size="sm" variant="ghost">
             Submit Ticket
           </ButtonLink>
-          <ButtonLink href="#dashboard" size="sm" variant="secondary">
+          <ButtonLink href="/dashboard" size="sm" variant="secondary">
             View Dashboard
           </ButtonLink>
         </div>
