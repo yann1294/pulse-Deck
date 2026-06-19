@@ -1,7 +1,7 @@
 import { DashboardPreview } from "@/components/dashboard/DashboardPreview";
 import { KnowledgeBasePreview } from "@/components/knowledge-base/KnowledgeBasePreview";
+import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
-import { SiteHeader } from "@/components/layout/SiteHeader";
 import { DemoTicketCta } from "@/components/tickets/DemoTicketCta";
 import { Badge, ButtonLink, Card, PageHeader, SectionCard } from "@/components/ui";
 
@@ -58,8 +58,8 @@ const stack = [
 
 export default function Home() {
   return (
-    <>
-      <SiteHeader />
+    <div className="app-background">
+      <PublicNavbar />
       <main>
         <section className="page-shell pb-16 pt-14 sm:pb-20 sm:pt-20 lg:pb-28">
           <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
@@ -183,6 +183,6 @@ export default function Home() {
         </section>
       </main>
       <SiteFooter />
-    </>
+    </div>
   );
 }
