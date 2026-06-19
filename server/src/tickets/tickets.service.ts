@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import {
   AiSuggestionStatus,
   Prisma,
@@ -21,6 +21,7 @@ import { buildPrioritizeTicketPrompt } from "../ai/prompts/prioritize-ticket.pro
 import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
 import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { QueueService } from "../queue/queue.service";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
 import type {
   ListTicketsQueryDto,
@@ -140,10 +141,13 @@ interface SuggestedReplyOutput {
 
 @Injectable()
 export class TicketsService {
+  private readonly logger = new Logger(TicketsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly knowledgeBaseService: KnowledgeBaseService
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly queueService: QueueService
   ) {}
 
   async createTicket(createTicketDto: CreateTicketDto): Promise<TicketDTO> {
@@ -182,7 +186,23 @@ export class TicketsService {
       }
     });
 
-    return this.toTicketDto(ticket);
+    try {
+      const jobs = await this.queueService.enqueueTicketAi(ticket.id);
+      this.logger.log(
+        `Enqueued ${jobs.length} ticket-ai jobs for ticket ${ticket.id}: ${jobs
+          .map((job) => job.name)
+          .join(", ")}`
+      );
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Failed to enqueue ticket-ai jobs for ticket ${ticket.id}; ticket creation will continue. Reason: ${getFailureMessage(error)}`
+      );
+    }
+
+    return {
+      ...this.toTicketDto(ticket),
+      aiStatus: "PENDING"
+    };
   }
 
   async listTickets(query: ListTicketsQueryDto): Promise<PaginatedResponse<TicketDTO>> {
