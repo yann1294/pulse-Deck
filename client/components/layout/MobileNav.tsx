@@ -16,6 +16,7 @@ export function MobileNav({ items, activeHref }: MobileNavProps) {
   return (
     <div className="lg:hidden">
       <Button
+        aria-label={isOpen ? "Close dashboard navigation" : "Open dashboard navigation"}
         aria-controls="mobile-dashboard-nav"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
@@ -30,7 +31,7 @@ export function MobileNav({ items, activeHref }: MobileNavProps) {
           className="fixed inset-x-4 top-16 z-50 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 shadow-panel-dark"
           id="mobile-dashboard-nav"
         >
-          <nav className="grid gap-1">
+          <nav aria-label="Dashboard navigation" className="grid gap-1">
             {items.map((item) => (
               <a
                 className={cn(

@@ -5,9 +5,9 @@ const documents = ["Billing FAQ.md", "Security Runbook.pdf", "Webhook Guide.txt"
 export function KnowledgeBasePreview() {
   return (
     <SectionCard
-      className="border-zinc-200 bg-white text-zinc-950"
       title="Knowledge base ingestion"
       description="Markdown, text, and PDF docs become searchable RAG context."
+      tone="light"
     >
       <div className="grid gap-3 md:grid-cols-3">
         {documents.map((document) => (

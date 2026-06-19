@@ -13,6 +13,7 @@ import type {
 import { DashboardShell, PageHeader } from "@/components/layout";
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   ErrorState,
@@ -81,6 +82,14 @@ export function AdminDashboard() {
   const tickets = ticketsQuery.data?.data ?? [];
   const summaryTickets = summaryQuery.data?.data ?? [];
   const kpis = getDashboardKpis(summaryTickets);
+  const hasActiveFilters = status !== "all" || priority !== "all" || category !== "all" || Boolean(search.trim());
+
+  function clearFilters() {
+    setStatus("all");
+    setPriority("all");
+    setCategory("all");
+    setSearch("");
+  }
 
   return (
     <DashboardShell activeHref="/dashboard" title="PulseDesk dashboard">
@@ -121,7 +130,7 @@ export function AdminDashboard() {
               value={category}
             />
             <label className="block">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+              <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">
                 Search
               </span>
               <Input
@@ -147,7 +156,18 @@ export function AdminDashboard() {
           />
         ) : tickets.length === 0 ? (
           <EmptyState
-            description="Try clearing search or changing status, priority, or category filters."
+            action={
+              hasActiveFilters ? (
+                <Button onClick={clearFilters} type="button" variant="secondary">
+                  Clear filters
+                </Button>
+              ) : null
+            }
+            description={
+              hasActiveFilters
+                ? "Clear the active filters to return to the full queue."
+                : "New support requests will appear here once customers submit tickets."
+            }
             title="No tickets match your filters."
           />
         ) : (
@@ -178,9 +198,9 @@ function KpiCard({ label, value, helper, tone }: KpiCardProps) {
 
   return (
     <Card className={cn("bg-gradient-to-br to-zinc-950 p-5", toneClasses[tone])}>
-      <p className="text-sm font-medium text-zinc-400">{label}</p>
+      <p className="text-sm font-medium text-zinc-300">{label}</p>
       <p className="mt-4 text-3xl font-semibold tracking-tight text-white">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-zinc-500">{helper}</p>
+      <p className="mt-2 text-xs leading-5 text-zinc-400">{helper}</p>
     </Card>
   );
 }
@@ -195,7 +215,7 @@ interface FilterSelectProps<T extends string> {
 function FilterSelect<T extends string>({ label, options, value, onChange }: FilterSelectProps<T>) {
   return (
     <label className="block">
-      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">
         {label}
       </span>
       <Select
@@ -224,37 +244,41 @@ function TicketResults({
     <>
       <div className="hidden overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/70 shadow-panel lg:block">
         <table className="w-full border-collapse text-left">
-          <thead className="border-b border-zinc-800 bg-zinc-900/70 text-xs uppercase tracking-[0.16em] text-zinc-500">
+          <caption className="sr-only">Support ticket queue</caption>
+          <thead className="border-b border-zinc-800 bg-zinc-900/70 text-xs uppercase tracking-[0.16em] text-zinc-400">
             <tr>
-              <th className="px-4 py-3 font-semibold">Title</th>
-              <th className="px-4 py-3 font-semibold">Customer</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Priority</th>
-              <th className="px-4 py-3 font-semibold">Category</th>
-              <th className="px-4 py-3 font-semibold">AI status</th>
-              <th className="px-4 py-3 font-semibold">Created</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Title</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Customer</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Status</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Priority</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Category</th>
+              <th className="px-4 py-3 font-semibold" scope="col">AI status</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Created</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
             {tickets.map((ticket) => (
               <tr
-                className="cursor-pointer transition hover:bg-zinc-900/80"
+                aria-label={`Open ticket: ${ticket.subject}`}
+                className="cursor-pointer transition hover:bg-zinc-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
                 key={ticket.id}
                 onClick={() => onOpenTicket(ticket.id)}
-                tabIndex={0}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
                     onOpenTicket(ticket.id);
                   }
                 }}
+                role="button"
+                tabIndex={0}
               >
                 <td className="max-w-sm px-4 py-4">
                   <p className="truncate text-sm font-semibold text-zinc-100">{ticket.subject}</p>
-                  <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{ticket.description}</p>
+                  <p className="mt-1 line-clamp-1 text-xs text-zinc-400">{ticket.description}</p>
                 </td>
                 <td className="px-4 py-4">
                   <p className="text-sm text-zinc-200">{ticket.customer?.name ?? "Unknown"}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{ticket.customer?.email ?? "No email"}</p>
+                  <p className="mt-1 text-xs text-zinc-400">{ticket.customer?.email ?? "No email"}</p>
                 </td>
                 <td className="px-4 py-4">
                   <StatusBadge status={ticket.status} />
@@ -280,7 +304,8 @@ function TicketResults({
       <div className="grid gap-3 lg:hidden">
         {tickets.map((ticket) => (
           <button
-            className="min-h-11 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left shadow-panel transition hover:border-zinc-700 hover:bg-zinc-900/80"
+            aria-label={`Open ticket: ${ticket.subject}`}
+            className="focus-ring min-h-11 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left shadow-panel transition hover:border-zinc-700 hover:bg-zinc-900/80"
             key={ticket.id}
             onClick={() => onOpenTicket(ticket.id)}
             type="button"
@@ -288,7 +313,7 @@ function TicketResults({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</h3>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-zinc-400">
                   {ticket.customer?.name ?? "Unknown customer"} · {formatDate(ticket.createdAt)}
                 </p>
               </div>
@@ -308,7 +333,8 @@ function TicketResults({
 
 function DashboardTableSkeleton() {
   return (
-    <Card className="p-5">
+    <Card aria-busy="true" aria-live="polite" className="p-5" role="status">
+      <span className="sr-only">Loading ticket queue</span>
       <div className="mb-5 flex items-center justify-between">
         <div className="h-4 w-36 rounded-full bg-zinc-800" />
         <div className="h-4 w-24 rounded-full bg-zinc-800" />
@@ -355,7 +381,7 @@ function AiStatusIndicator({ status }: { status: AiSuggestionStatus }) {
 
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-zinc-200">
-      <span className={cn("h-2 w-2 rounded-full", config.className)} />
+      <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", config.className)} />
       {config.label}
     </span>
   );

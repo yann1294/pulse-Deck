@@ -17,22 +17,26 @@ export function LoadingSkeleton({
 
   return (
     <div
+      aria-busy="true"
+      aria-live="polite"
       className={cn(
         "rounded-2xl border p-5",
         isLight ? "border-zinc-200 bg-white text-zinc-700" : "border-zinc-800 bg-zinc-950/70 text-zinc-300",
         className
       )}
+      role="status"
     >
       <div className="flex items-center gap-3 text-sm">
         <span
+          aria-hidden="true"
           className={cn(
             "h-4 w-4 animate-spin rounded-full border-2 border-t-emerald-300",
             isLight ? "border-zinc-200" : "border-zinc-700"
           )}
         />
-        {label}
+        <span>{label}</span>
       </div>
-      <div className="mt-5 space-y-3">
+      <div aria-hidden="true" className="mt-5 space-y-3">
         {Array.from({ length: rows }).map((_, index) => (
           <div
             className={cn(

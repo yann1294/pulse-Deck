@@ -23,7 +23,11 @@ export function ErrorState({
   const userMessage = message ?? getUserFriendlyErrorMessage(error);
 
   return (
-    <Card className={cn("border-rose-900/60 bg-rose-950/20 px-5 py-5", className)}>
+    <Card
+      aria-live="assertive"
+      className={cn("border-rose-900/60 bg-rose-950/20 px-5 py-5", className)}
+      role="alert"
+    >
       <h3 className="text-sm font-semibold text-rose-100">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-rose-200/80">{userMessage}</p>
       {actionLabel && onAction ? (

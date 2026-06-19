@@ -19,7 +19,7 @@ export function PublicNavbar() {
           </span>
           <span className="truncate text-sm font-semibold tracking-tight text-white">PulseDesk</span>
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav aria-label="Primary navigation" className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
             <a
               className="focus-ring rounded-full text-sm font-medium text-zinc-400 transition hover:text-white"

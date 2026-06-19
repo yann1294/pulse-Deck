@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { createTicket, type CreateTicketInput } from "@/lib/api";
-import { getUserFriendlyErrorMessage } from "@/lib/api-errors";
 import { Badge, Button, Card, ErrorState, Input, Textarea } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +27,7 @@ const initialValues: TicketFormValues = {
 };
 
 export function CustomerTicketForm() {
+  const formId = useId();
   const [values, setValues] = useState<TicketFormValues>(initialValues);
   const [errors, setErrors] = useState<TicketFormErrors>({});
   const ticketMutation = useMutation({
@@ -36,6 +36,7 @@ export function CustomerTicketForm() {
   const hasSubmitted = ticketMutation.isSuccess;
   const descriptionCount = values.description.length;
   const canSubmit = useMemo(() => !ticketMutation.isPending, [ticketMutation.isPending]);
+  const hasValidationErrors = Object.values(errors).some(Boolean);
 
   function updateField(field: keyof TicketFormValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -59,9 +60,9 @@ export function CustomerTicketForm() {
 
   if (hasSubmitted) {
     return (
-      <Card className="p-5 sm:p-8">
+      <Card aria-live="polite" className="p-5 sm:p-8" role="status">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400 text-2xl font-bold text-zinc-950">
-          ✓
+          <span aria-hidden="true">✓</span>
         </div>
         <Badge className="mt-6" tone="emerald">Ticket received</Badge>
         <h2 className="mt-4 text-xl font-semibold tracking-tight text-white sm:text-2xl">
@@ -101,28 +102,58 @@ export function CustomerTicketForm() {
       </div>
 
       {ticketMutation.isError ? (
-        <ErrorState className="mb-5" error={ticketMutation.error} title="Ticket submission failed" />
+        <ErrorState
+          className="mb-5"
+          error={ticketMutation.error}
+          title="Ticket submission failed"
+        />
       ) : null}
 
       <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+        {hasValidationErrors ? (
+          <div
+            aria-live="assertive"
+            className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"
+            role="alert"
+          >
+            Fix the highlighted fields before submitting your ticket.
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" error={errors.customerName} required>
+          <Field
+            error={errors.customerName}
+            id={`${formId}-customer-name`}
+            label="Name"
+            required
+          >
             <Input
+              aria-describedby={getDescribedBy(formId, "customerName", errors.customerName)}
               aria-invalid={Boolean(errors.customerName)}
               autoComplete="name"
               className={getFieldClassName(errors.customerName)}
+              id={`${formId}-customer-name`}
               onChange={(event) => updateField("customerName", event.target.value)}
               placeholder="Mara Chen"
+              required
               value={values.customerName}
             />
           </Field>
-          <Field label="Email" error={errors.customerEmail} required>
+          <Field
+            error={errors.customerEmail}
+            id={`${formId}-customer-email`}
+            label="Email"
+            required
+          >
             <Input
+              aria-describedby={getDescribedBy(formId, "customerEmail", errors.customerEmail)}
               aria-invalid={Boolean(errors.customerEmail)}
               autoComplete="email"
               className={getFieldClassName(errors.customerEmail)}
+              id={`${formId}-customer-email`}
               onChange={(event) => updateField("customerEmail", event.target.value)}
               placeholder="mara@company.com"
+              required
               type="email"
               value={values.customerEmail}
             />
@@ -133,23 +164,29 @@ export function CustomerTicketForm() {
           label="Company"
           error={errors.company}
           helperText="Optional, but useful for workspace-specific issues."
+          id={`${formId}-company`}
         >
           <Input
+            aria-describedby={getDescribedBy(formId, "company", errors.company, true)}
             aria-invalid={Boolean(errors.company)}
             autoComplete="organization"
             className={getFieldClassName(errors.company)}
+            id={`${formId}-company`}
             onChange={(event) => updateField("company", event.target.value)}
             placeholder="BrightLedger"
             value={values.company}
           />
         </Field>
 
-        <Field label="Title" error={errors.title} required>
+        <Field error={errors.title} id={`${formId}-title`} label="Title" required>
           <Input
+            aria-describedby={getDescribedBy(formId, "title", errors.title)}
             aria-invalid={Boolean(errors.title)}
             className={getFieldClassName(errors.title)}
+            id={`${formId}-title`}
             onChange={(event) => updateField("title", event.target.value)}
             placeholder="CSV export is stuck in queue"
+            required
             value={values.title}
           />
         </Field>
@@ -158,13 +195,17 @@ export function CustomerTicketForm() {
           label="Description"
           error={errors.description}
           helperText={`${descriptionCount}/5000 characters. Minimum 10 characters.`}
+          id={`${formId}-description`}
           required
         >
           <Textarea
+            aria-describedby={getDescribedBy(formId, "description", errors.description, true)}
             aria-invalid={Boolean(errors.description)}
             className={getFieldClassName(errors.description)}
+            id={`${formId}-description`}
             onChange={(event) => updateField("description", event.target.value)}
             placeholder="Describe the issue, what you expected, and what you already tried."
+            required
             value={values.description}
           />
         </Field>
@@ -173,10 +214,13 @@ export function CustomerTicketForm() {
           label="Attachment URL"
           error={errors.attachmentUrl}
           helperText="Optional. Paste a link to a screenshot, log, or recording."
+          id={`${formId}-attachment-url`}
         >
           <Input
+            aria-describedby={getDescribedBy(formId, "attachmentUrl", errors.attachmentUrl, true)}
             aria-invalid={Boolean(errors.attachmentUrl)}
             className={getFieldClassName(errors.attachmentUrl)}
+            id={`${formId}-attachment-url`}
             onChange={(event) => updateField("attachmentUrl", event.target.value)}
             placeholder="https://example.com/screenshot.png"
             type="url"
@@ -191,15 +235,15 @@ export function CustomerTicketForm() {
           </p>
         </div>
 
-        <Button className="w-full" disabled={!canSubmit} size="lg" type="submit">
+        <Button
+          aria-busy={ticketMutation.isPending}
+          className="w-full"
+          disabled={!canSubmit}
+          size="lg"
+          type="submit"
+        >
           {ticketMutation.isPending ? "Submitting ticket..." : "Submit ticket"}
         </Button>
-
-        {ticketMutation.isError ? (
-          <p className="text-center text-sm text-rose-200">
-            {getUserFriendlyErrorMessage(ticketMutation.error)}
-          </p>
-        ) : null}
       </form>
     </Card>
   );
@@ -208,28 +252,59 @@ export function CustomerTicketForm() {
 interface FieldProps {
   children: React.ReactNode;
   label: string;
+  id: string;
   error?: string;
   helperText?: string;
   required?: boolean;
 }
 
-function Field({ children, label, error, helperText, required }: FieldProps) {
+function Field({ children, label, id, error, helperText, required }: FieldProps) {
+  const errorId = `${id}-error`;
+  const helperId = `${id}-helper`;
+
   return (
-    <label className="block">
-      <span className="flex items-center justify-between gap-3 text-sm font-medium text-zinc-200">
+    <div className="block">
+      <label className="flex items-center justify-between gap-3 text-sm font-medium text-zinc-200" htmlFor={id}>
         <span>
           {label}
-          {required ? <span className="text-emerald-300"> *</span> : null}
+          {required ? <span aria-hidden="true" className="text-emerald-300"> *</span> : null}
         </span>
-      </span>
+      </label>
       <span className="mt-2 block">{children}</span>
       {error ? (
-        <span className="mt-2 block text-sm text-rose-300">{error}</span>
+        <span className="mt-2 block text-sm text-rose-300" id={errorId}>
+          {error}
+        </span>
       ) : helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-zinc-500">{helperText}</span>
+        <span className="mt-2 block text-xs leading-5 text-zinc-400" id={helperId}>
+          {helperText}
+        </span>
       ) : null}
-    </label>
+    </div>
   );
+}
+
+function getDescribedBy(
+  formId: string,
+  field: keyof TicketFormValues,
+  error?: string,
+  hasHelperText = false
+): string | undefined {
+  const fieldIds: Record<keyof TicketFormValues, string> = {
+    customerName: "customer-name",
+    customerEmail: "customer-email",
+    company: "company",
+    title: "title",
+    description: "description",
+    attachmentUrl: "attachment-url"
+  };
+  const id = `${formId}-${fieldIds[field]}`;
+
+  if (error) {
+    return `${id}-error`;
+  }
+
+  return hasHelperText ? `${id}-helper` : undefined;
 }
 
 function validateTicketForm(values: TicketFormValues): TicketFormErrors {

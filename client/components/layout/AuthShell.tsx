@@ -9,7 +9,10 @@ interface AuthShellProps {
 
 export function AuthShell({ children, mode }: AuthShellProps) {
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-zinc-950 px-4 py-6 text-zinc-100 sm:px-6 sm:py-8 lg:px-8">
+    <main
+      className="relative isolate min-h-screen overflow-hidden bg-zinc-950 px-4 py-6 text-zinc-100 sm:px-6 sm:py-8 lg:px-8"
+      id="main-content"
+    >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-zinc-950 to-zinc-900" />
       <div className="pointer-events-none absolute -left-28 top-0 -z-10 h-96 w-96 rounded-full bg-teal-500/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-28 top-10 -z-10 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
@@ -51,7 +54,7 @@ export function AuthShell({ children, mode }: AuthShellProps) {
                 <p className="text-sm font-semibold text-white">
                   {mode === "sign-in" ? "Welcome back" : "Create your workspace"}
                 </p>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-zinc-400">
                   {mode === "sign-in"
                     ? "Sign in to review ticket queues and AI drafts."
                     : "Start reviewing AI-assisted support workflows."}

@@ -22,10 +22,10 @@ export function Sidebar({ items, activeHref, className }: SidebarProps) {
         </span>
         <div>
           <p className="text-sm font-semibold text-white">PulseDesk</p>
-          <p className="text-xs text-zinc-500">Support ops</p>
+          <p className="text-xs text-zinc-400">Support ops</p>
         </div>
       </Link>
-      <nav className="mt-8 grid gap-1">
+      <nav aria-label="Dashboard navigation" className="mt-8 grid gap-1">
         {items.map((item) => (
           <a
             className={cn(

@@ -18,7 +18,10 @@ export default function SubmitTicketPage() {
   return (
     <div className="app-background min-h-screen">
       <PublicNavbar />
-      <main className="page-shell grid min-w-0 gap-8 py-10 sm:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12 lg:py-20">
+      <main
+        className="page-shell grid min-w-0 gap-8 py-10 sm:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12 lg:py-20"
+        id="main-content"
+      >
         <section className="self-start lg:sticky lg:top-24">
           <Badge tone="emerald">PulseDesk support portal</Badge>
           <h1 className="mt-5 text-balance text-3xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">

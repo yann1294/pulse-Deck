@@ -158,8 +158,9 @@ export function KnowledgeBaseWorkspace() {
             </div>
 
             <label
+              aria-describedby="knowledge-upload-help"
               className={cn(
-                "mt-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center transition",
+                "mt-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center transition focus-within:outline-none focus-within:ring-2 focus-within:ring-emerald-400 focus-within:ring-offset-2 focus-within:ring-offset-zinc-950",
                 isDragging
                   ? "border-emerald-300 bg-emerald-400/10 shadow-glow"
                   : "border-zinc-700 bg-zinc-950/60 hover:border-emerald-400/50 hover:bg-zinc-900/70"
@@ -169,17 +170,21 @@ export function KnowledgeBaseWorkspace() {
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDrop}
             >
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 text-lg font-black text-emerald-200">
+              <span
+                aria-hidden="true"
+                className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 text-lg font-black text-emerald-200"
+              >
                 KB
               </span>
               <span className="mt-4 text-sm font-semibold text-white">
                 Drop a PDF, TXT, or MD file here
               </span>
-              <span className="mt-2 max-w-md text-sm leading-6 text-zinc-400">
+              <span className="mt-2 max-w-md text-sm leading-6 text-zinc-400" id="knowledge-upload-help">
                 Or click to browse. Uploaded documents become searchable RAG context for AI draft
                 suggestions.
               </span>
               <input
+                aria-label="Upload knowledge document"
                 accept={acceptedExtensions.join(",")}
                 className="sr-only"
                 onChange={handleInputChange}
@@ -189,10 +194,11 @@ export function KnowledgeBaseWorkspace() {
             </label>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs leading-5 text-zinc-500">
+              <p className="text-xs leading-5 text-zinc-400">
                 Safety note: Do not upload sensitive production data in demo mode.
               </p>
               <Button
+                aria-busy={uploadMutation.isPending}
                 className="w-full sm:w-auto"
                 disabled={uploadMutation.isPending}
                 onClick={() => fileInputRef.current?.click()}
@@ -209,7 +215,7 @@ export function KnowledgeBaseWorkspace() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold text-white">Recent ingestion</h2>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-zinc-400">
                     Current upload state and latest chunk counts.
                   </p>
                 </div>
@@ -227,7 +233,7 @@ export function KnowledgeBaseWorkspace() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-white">Ingested documents</h2>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-zinc-400">
                   Ready documents are available to semantic search and AI suggestion prompts.
                 </p>
               </div>
@@ -245,6 +251,11 @@ export function KnowledgeBaseWorkspace() {
               />
             ) : documents.length === 0 ? (
               <EmptyState
+                action={
+                  <Button onClick={() => fileInputRef.current?.click()} type="button" variant="secondary">
+                    Upload document
+                  </Button>
+                }
                 description="Upload a PDF, TXT, or MD support document to create searchable RAG context."
                 title="No knowledge-base documents yet"
               />
@@ -277,13 +288,14 @@ function DocumentResults({ documents }: { documents: KnowledgeDocumentGroupDTO[]
     <>
       <div className="hidden overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/70 shadow-panel lg:block">
         <table className="w-full border-collapse text-left">
-          <thead className="border-b border-zinc-800 bg-zinc-900/70 text-xs uppercase tracking-[0.16em] text-zinc-500">
+          <caption className="sr-only">Ingested knowledge-base documents</caption>
+          <thead className="border-b border-zinc-800 bg-zinc-900/70 text-xs uppercase tracking-[0.16em] text-zinc-400">
             <tr>
-              <th className="px-4 py-3 font-semibold">Document</th>
-              <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Chunks</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Updated</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Document</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Type</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Chunks</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Status</th>
+              <th className="px-4 py-3 font-semibold" scope="col">Updated</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
@@ -291,7 +303,7 @@ function DocumentResults({ documents }: { documents: KnowledgeDocumentGroupDTO[]
               <tr className="transition hover:bg-zinc-900/70" key={getDocumentKey(document)}>
                 <td className="max-w-md px-4 py-4">
                   <p className="truncate text-sm font-semibold text-zinc-100">{document.title}</p>
-                  <p className="mt-1 truncate text-xs text-zinc-500">{document.sourceName}</p>
+                  <p className="mt-1 truncate text-xs text-zinc-400">{document.sourceName}</p>
                 </td>
                 <td className="px-4 py-4">
                   <FileTypeBadge extension={document.sourceType} />
@@ -315,14 +327,14 @@ function DocumentResults({ documents }: { documents: KnowledgeDocumentGroupDTO[]
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="line-clamp-2 break-words text-sm font-semibold text-white">{document.title}</h3>
-                <p className="mt-1 truncate text-xs text-zinc-500">{document.sourceName}</p>
+                <p className="mt-1 truncate text-xs text-zinc-400">{document.sourceName}</p>
               </div>
               <IngestionStatusBadge status="ready" />
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <FileTypeBadge extension={document.sourceType} />
               <Badge tone="neutral">{document.chunkCount} chunks</Badge>
-              <span className="text-xs text-zinc-500">Updated {formatDate(document.updatedAt)}</span>
+              <span className="text-xs text-zinc-400">Updated {formatDate(document.updatedAt)}</span>
             </div>
           </Card>
         ))}
@@ -333,13 +345,17 @@ function DocumentResults({ documents }: { documents: KnowledgeDocumentGroupDTO[]
 
 function ActivityCard({ activity }: { activity: UploadActivity }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+    <div
+      aria-live={activity.status === "processing" ? "polite" : "assertive"}
+      className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4"
+      role={activity.status === "failed" ? "alert" : "status"}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-zinc-100">
             {activity.title ?? activity.fileName}
           </p>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">{activity.message}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">{activity.message}</p>
         </div>
         <IngestionStatusBadge status={activity.status} />
       </div>
@@ -377,7 +393,7 @@ function HowItWorksCard() {
           </div>
         ))}
       </div>
-      <p className="mt-5 text-sm leading-6 text-zinc-500">
+      <p className="mt-5 text-sm leading-6 text-zinc-400">
         Retrieved snippets are used as grounding context. PulseDesk still keeps final replies under
         admin review.
       </p>
@@ -407,7 +423,7 @@ function IngestionStatusBadge({ status }: { status: UploadStatus }) {
 
   return (
     <Badge className="gap-2" tone={current.tone}>
-      <span className={cn("h-1.5 w-1.5 rounded-full", current.dot)} />
+      <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", current.dot)} />
       {current.label}
     </Badge>
   );

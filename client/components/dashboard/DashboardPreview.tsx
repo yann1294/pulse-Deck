@@ -28,7 +28,7 @@ export function DashboardPreview() {
         <div className="flex flex-col gap-4 border-b border-zinc-800 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-white">Admin queue</p>
-            <p className="mt-1 text-xs text-zinc-500">Live ticket triage with AI assistance</p>
+            <p className="mt-1 text-xs text-zinc-400">Live ticket triage with AI assistance</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone="emerald">12 open</Badge>
@@ -57,13 +57,13 @@ export function DashboardPreview() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <h3 className="break-words text-sm font-semibold text-zinc-100">{ticket.title}</h3>
-                      <p className="mt-1 text-xs text-zinc-500">{ticket.customer}</p>
+                      <p className="mt-1 text-xs text-zinc-400">{ticket.customer}</p>
                     </div>
                     <Badge tone={ticket.priority === "Urgent" ? "amber" : "emerald"}>
                       {ticket.priority}
                     </Badge>
                   </div>
-                  <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
+                  <div className="mt-4 flex items-center justify-between text-xs text-zinc-400">
                     <span>{ticket.status}</span>
                     <span>2m ago</span>
                   </div>

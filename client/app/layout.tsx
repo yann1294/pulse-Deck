@@ -17,6 +17,9 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className="antialiased">
+          <a className="skip-link" href="#main-content">
+            Skip to main content
+          </a>
           <QueryProvider>{children}</QueryProvider>
         </body>
       </html>

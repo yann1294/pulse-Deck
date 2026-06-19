@@ -59,7 +59,7 @@ export default function Home() {
   return (
     <div className="app-background">
       <PublicNavbar />
-      <main>
+      <main id="main-content">
         <section className="page-shell pb-14 pt-12 sm:pb-20 sm:pt-20 lg:pb-28">
           <div className="grid min-w-0 items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
             <div>

@@ -7,6 +7,7 @@ import { DashboardShell, PageHeader } from "@/components/layout";
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   EmptyState,
   ErrorState,
@@ -88,6 +89,11 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
         />
       ) : !detail || !ticket ? (
         <EmptyState
+          action={
+            <ButtonLink href="/dashboard" variant="secondary">
+              Back to dashboard
+            </ButtonLink>
+          }
           description="The selected ticket could not be found or is no longer available."
           title="Ticket not found"
         />
@@ -97,6 +103,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
             actions={
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                 <Button
+                  aria-busy={generateMutation.isPending}
                   className="w-full sm:w-auto"
                   disabled={generateMutation.isPending}
                   onClick={() => generateMutation.mutate()}
@@ -105,6 +112,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
                   {generateMutation.isPending ? "Generating..." : "Generate AI suggestion"}
                 </Button>
                 <Button
+                  aria-busy={resolveMutation.isPending}
                   className="w-full sm:w-auto"
                   disabled={resolveMutation.isPending || ticket.status === "resolved"}
                   onClick={() => resolveMutation.mutate()}
@@ -121,7 +129,11 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
           />
 
           {actionMessage ? (
-            <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-100">
+            <div
+              aria-live="polite"
+              className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-100"
+              role="status"
+            >
               {actionMessage}
             </div>
           ) : null}
@@ -168,7 +180,7 @@ function TicketOverview({ ticket }: { ticket: NonNullable<Awaited<ReturnType<typ
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">Ticket details</h2>
-          <p className="mt-1 text-sm text-zinc-500">Created {formatDate(ticket.createdAt)}</p>
+          <p className="mt-1 text-sm text-zinc-400">Created {formatDate(ticket.createdAt)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <StatusBadge status={ticket.status} />
@@ -206,8 +218,8 @@ function CustomerPanel({
           <h3 className="text-sm font-semibold text-zinc-200">Previous tickets</h3>
           <div className="mt-3 space-y-3">
             {history.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm text-zinc-500">
-                No previous tickets for this customer.
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm leading-6 text-zinc-400">
+                No previous tickets for this customer. Use the current ticket details and AI panel to continue triage.
               </div>
             ) : (
               history.map((ticket) => (
@@ -215,7 +227,7 @@ function CustomerPanel({
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{formatDate(ticket.createdAt)}</p>
+                      <p className="mt-1 text-xs text-zinc-400">{formatDate(ticket.createdAt)}</p>
                     </div>
                     <StatusBadge status={ticket.status} />
                   </div>
@@ -258,7 +270,7 @@ function AiSuggestionPanel({
           </div>
           {suggestion?.confidenceScore !== undefined ? (
             <div className="self-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-left sm:text-right">
-              <p className="text-xs text-zinc-500">Confidence</p>
+              <p className="text-xs text-zinc-400">Confidence</p>
               <p className="text-lg font-semibold text-emerald-200">
                 {Math.round(suggestion.confidenceScore * 100)}%
               </p>
@@ -306,7 +318,7 @@ function AiSuggestionPanel({
         <div className="mt-4 space-y-3">
           {snippets.length === 0 ? (
             <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
-              Needs manual verification.
+              No knowledge snippets were retrieved. Review the ticket manually or upload relevant support documentation before relying on an AI draft.
             </div>
           ) : (
             snippets.map((snippet, index) => (
@@ -318,13 +330,13 @@ function AiSuggestionPanel({
                   <span className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <span className="break-words">{snippet.title || `Snippet ${index + 1}`}</span>
                     {snippet.score !== undefined ? (
-                      <span className="text-xs font-medium text-zinc-500">
+                      <span className="text-xs font-medium text-zinc-400">
                         {Math.round(snippet.score * 100)}%
                       </span>
                     ) : null}
                   </span>
                   {snippet.sourceName ? (
-                    <span className="mt-1 block text-xs font-normal text-zinc-500">{snippet.sourceName}</span>
+                    <span className="mt-1 block text-xs font-normal text-zinc-400">{snippet.sourceName}</span>
                   ) : null}
                 </summary>
                 <p className="mt-3 break-words text-sm leading-6 text-zinc-400">{snippet.content}</p>
@@ -352,7 +364,7 @@ function TicketDetailSkeleton() {
 function PanelBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">{title}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{title}</h3>
       <div className="mt-3">{children}</div>
     </div>
   );
@@ -361,7 +373,7 @@ function PanelBlock({ title, children }: { title: string; children: React.ReactN
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">{label}</p>
       <p className="mt-1 break-words text-zinc-200">{value}</p>
     </div>
   );
