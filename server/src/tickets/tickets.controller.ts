@@ -27,6 +27,12 @@ export class TicketsController {
     return this.ticketsService.getTicketById(id);
   }
 
+  @Post(":id/generate-ai-suggestion")
+  @UseGuards(ClerkAuthGuard)
+  generateAiSuggestion(@Param("id") id: string) {
+    return this.ticketsService.generateAiSuggestion(id);
+  }
+
   @Patch(":id/status")
   @UseGuards(ClerkAuthGuard)
   updateTicketStatus(

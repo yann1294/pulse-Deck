@@ -134,6 +134,7 @@ model TicketAiSuggestion {
   confidenceScore     Float?
   errorMessage        String?
   ragSnippets         Json?
+  retrievedContext    Json?
   ticket              Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   knowledgeDocument   KnowledgeDocument? @relation(fields: [knowledgeDocumentId], references: [id], onDelete: SetNull)
   createdAt           DateTime           @default(now())

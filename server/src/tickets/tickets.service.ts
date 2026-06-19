@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import {
   AiSuggestionStatus,
   Prisma,
@@ -15,6 +15,11 @@ import type {
   TicketPriority as ApiTicketPriority,
   TicketStatus as ApiTicketStatus
 } from "@pulsedesk/shared";
+import { AiService } from "../ai/ai.service";
+import { buildClassifyTicketPrompt } from "../ai/prompts/classify-ticket.prompt";
+import { buildPrioritizeTicketPrompt } from "../ai/prompts/prioritize-ticket.prompt";
+import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
+import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
 import type {
@@ -83,9 +88,63 @@ export interface AdminTicketDetailDTO {
   aiSuggestions: AiSuggestionDTO[];
 }
 
+export interface GenerateAiSuggestionResultDTO {
+  ticket: TicketDTO;
+  suggestion: AiSuggestionDTO & {
+    summary?: string;
+    retrievedContext?: Prisma.JsonValue;
+  };
+}
+
+interface TicketWithCustomerForAi {
+  id: string;
+  subject: string;
+  description: string;
+  customer: {
+    name: string;
+    email: string;
+    companyName: string | null;
+    _count?: {
+      tickets: number;
+    };
+  };
+}
+
+interface ClassificationOutput {
+  category: TicketCategory;
+  confidence: number;
+  reasoning: string;
+}
+
+interface PriorityOutput {
+  priority: TicketPriority;
+  confidence: number;
+  reasoning: string;
+  escalationSignals: string[];
+}
+
+interface SuggestedReplyOutput {
+  summary: string;
+  replyDraft: string;
+  contextSufficient: boolean;
+  insufficientContextReason: string | null;
+  citations: Array<{
+    id: string;
+    title: string;
+    sourceName: string;
+  }>;
+  confidence: number;
+  humanReviewRequired: true;
+  internalNotes: string;
+}
+
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
+    private readonly knowledgeBaseService: KnowledgeBaseService
+  ) {}
 
   async createTicket(createTicketDto: CreateTicketDto): Promise<TicketDTO> {
     const customer = await this.prisma.customer.upsert({
@@ -239,6 +298,175 @@ export class TicketsService {
 
       throw error;
     }
+  }
+
+  async generateAiSuggestion(id: string): Promise<GenerateAiSuggestionResultDTO> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        customer: {
+          include: {
+            _count: {
+              select: { tickets: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!ticket) {
+      throw new NotFoundException("Ticket not found");
+    }
+
+    let retrievedContext: KnowledgeSearchResultDTO[] = [];
+
+    try {
+      retrievedContext = await this.knowledgeBaseService.searchRelevantChunks(
+        `${ticket.subject}\n\n${ticket.description}`,
+        5
+      );
+
+      const classification = await this.classifyTicket(ticket);
+      const priority = await this.prioritizeTicket(ticket, classification.category);
+      const reply = await this.suggestReply(ticket, classification.category, priority.priority, retrievedContext);
+      const suggestion = await this.prisma.ticketAiSuggestion.create({
+        data: {
+          ticketId: ticket.id,
+          status: AiSuggestionStatus.GENERATED,
+          suggestedReply: reply.replyDraft,
+          suggestedCategory: classification.category,
+          suggestedPriority: priority.priority,
+          confidenceScore: averageConfidence([
+            classification.confidence,
+            priority.confidence,
+            reply.confidence
+          ]),
+          ragSnippets: toJsonValue(retrievedContext),
+          retrievedContext: toJsonValue({
+            snippets: retrievedContext,
+            classification: {
+              category: classification.category,
+              confidence: classification.confidence,
+              reasoning: classification.reasoning
+            },
+            prioritization: {
+              priority: priority.priority,
+              confidence: priority.confidence,
+              reasoning: priority.reasoning,
+              escalationSignals: priority.escalationSignals
+            },
+            reply: {
+              summary: reply.summary,
+              contextSufficient: reply.contextSufficient,
+              insufficientContextReason: reply.insufficientContextReason,
+              citations: reply.citations,
+              internalNotes: reply.internalNotes,
+              humanReviewRequired: reply.humanReviewRequired
+            }
+          })
+        }
+      });
+      const updatedTicket = await this.prisma.ticket.update({
+        where: { id: ticket.id },
+        data: {
+          category: classification.category,
+          priority: priority.priority
+        },
+        include: {
+          customer: {
+            include: {
+              _count: {
+                select: { tickets: true }
+              }
+            }
+          },
+          aiSuggestions: {
+            orderBy: { createdAt: "desc" },
+            take: 1
+          }
+        }
+      });
+
+      return {
+        ticket: this.toTicketDto(updatedTicket),
+        suggestion: {
+          ...this.toAiSuggestionDto(suggestion),
+          summary: reply.summary,
+          retrievedContext: suggestion.retrievedContext
+        }
+      };
+    } catch (error: unknown) {
+      const failureMessage = getFailureMessage(error);
+      await this.prisma.ticketAiSuggestion.create({
+        data: {
+          ticketId: ticket.id,
+          status: AiSuggestionStatus.FAILED,
+          errorMessage: failureMessage,
+          retrievedContext: toJsonValue({
+            snippets: retrievedContext,
+            failure: failureMessage
+          })
+        }
+      });
+
+      throw new ServiceUnavailableException(
+        `AI suggestion generation failed. A failed suggestion record was saved. Reason: ${failureMessage}`
+      );
+    }
+  }
+
+  private async classifyTicket(ticket: TicketWithCustomerForAi): Promise<ClassificationOutput> {
+    const output = await this.aiService.generateJson(
+      buildClassifyTicketPrompt({
+        subject: ticket.subject,
+        description: ticket.description,
+        customerName: ticket.customer.name,
+        ...(ticket.customer.companyName ? { companyName: ticket.customer.companyName } : {})
+      })
+    );
+
+    return parseClassificationOutput(output);
+  }
+
+  private async prioritizeTicket(
+    ticket: TicketWithCustomerForAi,
+    category: TicketCategory
+  ): Promise<PriorityOutput> {
+    const output = await this.aiService.generateJson(
+      buildPrioritizeTicketPrompt({
+        subject: ticket.subject,
+        description: ticket.description,
+        category,
+        customerName: ticket.customer.name,
+        ...(ticket.customer.companyName ? { companyName: ticket.customer.companyName } : {}),
+        customerTicketCount: ticket.customer._count?.tickets ?? 0
+      })
+    );
+
+    return parsePriorityOutput(output);
+  }
+
+  private async suggestReply(
+    ticket: TicketWithCustomerForAi,
+    category: TicketCategory,
+    priority: TicketPriority,
+    snippets: KnowledgeSearchResultDTO[]
+  ): Promise<SuggestedReplyOutput> {
+    const output = await this.aiService.generateJson(
+      buildSuggestReplyPrompt({
+        ticket: {
+          subject: ticket.subject,
+          description: ticket.description,
+          category,
+          priority,
+          customerName: ticket.customer.name,
+          ...(ticket.customer.companyName ? { companyName: ticket.customer.companyName } : {})
+        },
+        snippets
+      })
+    );
+
+    return parseSuggestedReplyOutput(output);
   }
 
   private buildTicketWhere(query: ListTicketsQueryDto): Prisma.TicketWhereInput {
@@ -453,4 +681,133 @@ function toApiAiSuggestionStatus(status: AiSuggestionStatus) {
 
 function isPrismaNotFoundError(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025";
+}
+
+function parseClassificationOutput(output: unknown): ClassificationOutput {
+  const record = asRecord(output, "classification output");
+  const category = parseTicketCategory(record.category);
+
+  return {
+    category,
+    confidence: parseConfidence(record.confidence, "classification confidence"),
+    reasoning: parseString(record.reasoning, "classification reasoning")
+  };
+}
+
+function parsePriorityOutput(output: unknown): PriorityOutput {
+  const record = asRecord(output, "priority output");
+  const escalationSignals = Array.isArray(record.escalationSignals)
+    ? record.escalationSignals.map((signal) => parseString(signal, "escalation signal"))
+    : [];
+
+  return {
+    priority: parseTicketPriority(record.priority),
+    confidence: parseConfidence(record.confidence, "priority confidence"),
+    reasoning: parseString(record.reasoning, "priority reasoning"),
+    escalationSignals
+  };
+}
+
+function parseSuggestedReplyOutput(output: unknown): SuggestedReplyOutput {
+  const record = asRecord(output, "suggested reply output");
+  const contextSufficient = parseBoolean(record.contextSufficient, "contextSufficient");
+  const humanReviewRequired = parseBoolean(record.humanReviewRequired, "humanReviewRequired");
+
+  if (!humanReviewRequired) {
+    throw new ServiceUnavailableException("AI reply output must require human review");
+  }
+
+  return {
+    summary: parseString(record.summary, "reply summary"),
+    replyDraft: parseString(record.replyDraft, "reply draft"),
+    contextSufficient,
+    insufficientContextReason:
+      typeof record.insufficientContextReason === "string"
+        ? record.insufficientContextReason
+        : null,
+    citations: parseCitations(record.citations),
+    confidence: parseConfidence(record.confidence, "reply confidence"),
+    humanReviewRequired: true,
+    internalNotes: parseString(record.internalNotes, "internal notes")
+  };
+}
+
+function parseCitations(value: unknown): SuggestedReplyOutput["citations"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((citation) => {
+    const record = asRecord(citation, "citation");
+
+    return {
+      id: parseString(record.id, "citation id"),
+      title: parseString(record.title, "citation title"),
+      sourceName: parseString(record.sourceName, "citation sourceName")
+    };
+  });
+}
+
+function parseTicketCategory(value: unknown): TicketCategory {
+  if (typeof value !== "string" || !(value in TicketCategory)) {
+    throw new ServiceUnavailableException(`AI returned unsupported category: ${String(value)}`);
+  }
+
+  return TicketCategory[value as keyof typeof TicketCategory];
+}
+
+function parseTicketPriority(value: unknown): TicketPriority {
+  if (typeof value !== "string" || !(value in TicketPriority)) {
+    throw new ServiceUnavailableException(`AI returned unsupported priority: ${String(value)}`);
+  }
+
+  return TicketPriority[value as keyof typeof TicketPriority];
+}
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ServiceUnavailableException(`AI returned invalid ${label}`);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function parseString(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new ServiceUnavailableException(`AI returned invalid ${label}`);
+  }
+
+  return value.trim();
+}
+
+function parseBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ServiceUnavailableException(`AI returned invalid ${label}`);
+  }
+
+  return value;
+}
+
+function parseConfidence(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ServiceUnavailableException(`AI returned invalid ${label}`);
+  }
+
+  return Math.max(0, Math.min(1, value));
+}
+
+function averageConfidence(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function toJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function getFailureMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unknown AI suggestion generation error";
 }

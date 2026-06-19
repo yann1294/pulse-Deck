@@ -44,6 +44,7 @@ Do not include markdown, comments, code fences, or explanatory text outside JSON
 
 Required JSON shape:
 {
+  "summary": "one sentence internal ticket summary",
   "replyDraft": "customer-facing draft text",
   "contextSufficient": true,
   "insufficientContextReason": null,
@@ -62,6 +63,7 @@ Required JSON shape:
 If context is insufficient, use this JSON behavior:
 - "contextSufficient": false
 - "insufficientContextReason": a short explanation
+- "summary": a one sentence summary of the ticket and missing context
 - "replyDraft": must clearly say the available context is insufficient to fully answer and should avoid unsupported claims
 - "humanReviewRequired": true
 
