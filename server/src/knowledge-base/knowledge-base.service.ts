@@ -32,6 +32,22 @@ export interface KnowledgeDocumentGroupDTO {
   updatedAt: string;
 }
 
+export interface KnowledgeSearchResultDTO {
+  id: string;
+  title: string;
+  content: string;
+  score: number;
+  sourceName: string;
+}
+
+interface KnowledgeSearchRow {
+  id: string;
+  title: string;
+  content: string;
+  score: number;
+  sourceName: string;
+}
+
 @Injectable()
 export class KnowledgeBaseService {
   constructor(
@@ -102,6 +118,40 @@ export class KnowledgeBaseService {
     };
   }
 
+  async searchRelevantChunks(query: string, limit = 5): Promise<KnowledgeSearchResultDTO[]> {
+    const normalizedQuery = query.trim();
+
+    if (!normalizedQuery) {
+      throw new BadRequestException("Search query is required");
+    }
+
+    const safeLimit = normalizeSearchLimit(limit);
+    const queryEmbedding = await this.aiService.embedText(normalizedQuery);
+    const queryVector = toPgVectorLiteral(queryEmbedding);
+
+    const rows = await this.prisma.$queryRaw<KnowledgeSearchRow[]>`
+      SELECT
+        "id",
+        "title",
+        "content",
+        1 - ("embedding" <=> ${queryVector}::vector) AS "score",
+        "sourceName"
+      FROM "KnowledgeDocument"
+      WHERE "embedding" IS NOT NULL
+        AND "isActive" = true
+      ORDER BY "embedding" <=> ${queryVector}::vector ASC
+      LIMIT ${safeLimit}
+    `;
+
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      score: Number(row.score),
+      sourceName: row.sourceName
+    }));
+  }
+
   async listDocumentGroups(): Promise<KnowledgeDocumentGroupDTO[]> {
     const documents = await this.prisma.knowledgeDocument.findMany({
       select: {
@@ -149,6 +199,14 @@ export class KnowledgeBaseService {
       right.updatedAt.localeCompare(left.updatedAt)
     );
   }
+}
+
+export function normalizeSearchLimit(limit: number): number {
+  if (!Number.isInteger(limit) || limit < 1) {
+    return 5;
+  }
+
+  return Math.min(limit, 25);
 }
 
 export function normalizeDocumentTitle(title: string | undefined, fileName: string): string {

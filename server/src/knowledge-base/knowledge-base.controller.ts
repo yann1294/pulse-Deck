@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors
@@ -12,6 +13,7 @@ import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import {
   KnowledgeBaseService,
   type KnowledgeDocumentGroupDTO,
+  type KnowledgeSearchResultDTO,
   type KnowledgeUploadResultDTO,
   type UploadedKnowledgeFile
 } from "./knowledge-base.service";
@@ -30,9 +32,32 @@ export class KnowledgeBaseController {
     return this.knowledgeBaseService.ingestUploadedFile({ file, title });
   }
 
+  @Get("search")
+  @UseGuards(ClerkAuthGuard)
+  searchDocuments(
+    @Query("q") query: string | undefined,
+    @Query("limit") limit?: string
+  ): Promise<KnowledgeSearchResultDTO[]> {
+    return this.knowledgeBaseService.searchRelevantChunks(query ?? "", parseSearchLimit(limit));
+  }
+
   @Get("documents")
   @UseGuards(ClerkAuthGuard)
   listDocuments(): Promise<KnowledgeDocumentGroupDTO[]> {
     return this.knowledgeBaseService.listDocumentGroups();
   }
+}
+
+function parseSearchLimit(rawLimit: string | undefined): number {
+  if (!rawLimit) {
+    return 5;
+  }
+
+  const limit = Number(rawLimit);
+
+  if (!Number.isInteger(limit) || limit < 1 || limit > 25) {
+    return 5;
+  }
+
+  return limit;
 }
