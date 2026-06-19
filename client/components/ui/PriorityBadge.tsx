@@ -13,7 +13,7 @@ const priorityTones: Record<TicketPriority, ComponentProps<typeof Badge>["tone"]
   low: "neutral",
   medium: "teal",
   high: "amber",
-  urgent: "red"
+  urgent: "rose"
 };
 
 interface PriorityBadgeProps {
