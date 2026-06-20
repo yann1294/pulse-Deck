@@ -230,8 +230,8 @@ export function KnowledgeBaseWorkspace() {
           ) : null}
 
           <section>
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="text-base font-semibold text-white">Ingested documents</h2>
                 <p className="mt-1 text-sm text-zinc-400">
                   Ready documents are available to semantic search and AI suggestion prompts.
@@ -324,17 +324,17 @@ function DocumentResults({ documents }: { documents: KnowledgeDocumentGroupDTO[]
       <div className="grid gap-3 lg:hidden">
         {documents.map((document) => (
           <Card className="p-4" key={getDocumentKey(document)}>
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h3 className="line-clamp-2 break-words text-sm font-semibold text-white">{document.title}</h3>
-                <p className="mt-1 truncate text-xs text-zinc-400">{document.sourceName}</p>
+                <p className="mt-1 break-all text-xs text-zinc-400">{document.sourceName}</p>
               </div>
               <IngestionStatusBadge status="ready" />
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <FileTypeBadge extension={document.sourceType} />
               <Badge tone="neutral">{document.chunkCount} chunks</Badge>
-              <span className="text-xs text-zinc-400">Updated {formatDate(document.updatedAt)}</span>
+              <span className="break-words text-xs text-zinc-400">Updated {formatDate(document.updatedAt)}</span>
             </div>
           </Card>
         ))}
@@ -352,7 +352,7 @@ function ActivityCard({ activity }: { activity: UploadActivity }) {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-zinc-100">
+          <p className="break-all text-sm font-semibold text-zinc-100">
             {activity.title ?? activity.fileName}
           </p>
           <p className="mt-1 text-xs leading-5 text-zinc-400">{activity.message}</p>

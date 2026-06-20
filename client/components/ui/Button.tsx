@@ -31,7 +31,7 @@ export type ButtonLinkProps = BaseButtonProps & AnchorHTMLAttributes<HTMLAnchorE
 export function Button(props: ButtonProps) {
   const { children, className, variant = "primary", size = "md", ...buttonProps } = props;
   const classes = cn(
-    "focus-ring inline-flex max-w-full items-center justify-center rounded-full text-center font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-50",
+    "focus-ring inline-flex max-w-full min-w-0 items-center justify-center rounded-full text-center font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-50",
     variantClasses[variant],
     sizeClasses[size],
     className
@@ -47,7 +47,7 @@ export function Button(props: ButtonProps) {
 export function ButtonLink(props: ButtonLinkProps) {
   const { children, className, variant = "primary", size = "md", ...anchorProps } = props;
   const classes = cn(
-    "focus-ring inline-flex max-w-full items-center justify-center rounded-full text-center font-semibold leading-tight transition",
+    "focus-ring inline-flex max-w-full min-w-0 items-center justify-center rounded-full text-center font-semibold leading-tight transition",
     variantClasses[variant],
     sizeClasses[size],
     className

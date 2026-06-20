@@ -1,4 +1,35 @@
 services:
+  server:
+    profiles:
+      - server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: pulsedesk-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${SERVER_PORT:-3001}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pulsedesk}:${POSTGRES_PASSWORD:-pulsedesk}@postgres:5432/${POSTGRES_DB:-pulsedesk}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_JWT_KEY: ${CLERK_JWT_KEY:-}
+      CLERK_AUTHORIZED_PARTY: ${CLERK_AUTHORIZED_PARTY:-http://localhost:3000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_GENERATION_MODEL: ${GEMINI_GENERATION_MODEL:-gemini-3.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-768}
+    ports:
+      - "${SERVER_PORT:-3001}:3001"
+
   postgres:
     image: pgvector/pgvector:pg16
     container_name: pulsedesk-postgres

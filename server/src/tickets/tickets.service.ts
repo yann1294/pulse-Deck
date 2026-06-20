@@ -22,6 +22,7 @@ import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
 import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
+import { RealtimeService } from "../realtime/realtime.service";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
 import type {
   ListTicketsQueryDto,
@@ -147,7 +148,8 @@ export class TicketsService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
-    private readonly queueService: QueueService
+    private readonly queueService: QueueService,
+    private readonly realtimeService: RealtimeService
   ) {}
 
   async createTicket(createTicketDto: CreateTicketDto): Promise<TicketDTO> {
@@ -310,7 +312,10 @@ export class TicketsService {
         }
       });
 
-      return this.toTicketDto(ticket);
+      const ticketDto = this.toTicketDto(ticket);
+      this.realtimeService.emitTicketUpdated(ticket.id, ticketDto);
+
+      return ticketDto;
     } catch (error: unknown) {
       if (isPrismaNotFoundError(error)) {
         throw new NotFoundException("Ticket not found");
@@ -407,13 +412,19 @@ export class TicketsService {
         }
       });
 
+      const ticketDto = this.toTicketDto(updatedTicket);
+      const suggestionDto = {
+        ...this.toAiSuggestionDto(suggestion),
+        summary: reply.summary,
+        retrievedContext: suggestion.retrievedContext
+      };
+
+      this.realtimeService.emitTicketUpdated(ticket.id, ticketDto);
+      this.realtimeService.emitAiSuggestionReady(ticket.id);
+
       return {
-        ticket: this.toTicketDto(updatedTicket),
-        suggestion: {
-          ...this.toAiSuggestionDto(suggestion),
-          summary: reply.summary,
-          retrievedContext: suggestion.retrievedContext
-        }
+        ticket: ticketDto,
+        suggestion: suggestionDto
       };
     } catch (error: unknown) {
       const failureMessage = getFailureMessage(error);

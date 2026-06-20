@@ -4,6 +4,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { AiModule } from "../ai/ai.module";
 import { KnowledgeBaseModule } from "../knowledge-base/knowledge-base.module";
 import { PrismaModule } from "../prisma/prisma.module";
+import { RealtimeModule } from "../realtime/realtime.module";
 import { QueueService } from "./queue.service";
 import { TicketAiProcessor } from "./ticket-ai.processor";
 
@@ -12,6 +13,7 @@ import { TicketAiProcessor } from "./ticket-ai.processor";
     AiModule,
     KnowledgeBaseModule,
     PrismaModule,
+    RealtimeModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

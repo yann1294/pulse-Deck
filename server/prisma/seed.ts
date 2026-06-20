@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   AiSuggestionStatus,
   PrismaClient,
@@ -7,7 +9,46 @@ import {
   UserRole
 } from "@prisma/client";
 
+loadLocalEnv();
+
 const prisma = new PrismaClient();
+const isDemoMode = process.env.DEMO_MODE === "true";
+
+function loadLocalEnv(): void {
+  const envPaths = [
+    join(process.cwd(), ".env"),
+    join(process.cwd(), "server", ".env")
+  ];
+
+  for (const envPath of envPaths) {
+    if (!existsSync(envPath)) {
+      continue;
+    }
+
+    const lines = readFileSync(envPath, "utf8").split(/\r?\n/);
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith("#")) {
+        continue;
+      }
+
+      const separatorIndex = trimmed.indexOf("=");
+
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const key = trimmed.slice(0, separatorIndex).trim();
+      const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, "");
+
+      if (key && process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    }
+  }
+}
 
 const adminUser = {
   id: "demo_admin_user",
@@ -317,6 +358,78 @@ const suggestions = [
         excerpt: "For suspected account compromise, ask the customer to rotate passwords, review active sessions, enable MFA, and rotate API keys."
       }
     ]
+  },
+  {
+    id: "demo_suggestion_webhook_retries",
+    ticketId: "demo_ticket_webhook_retries",
+    knowledgeDocumentId: "demo_kb_api_webhooks",
+    status: AiSuggestionStatus.GENERATED,
+    suggestedCategory: TicketCategory.TECHNICAL,
+    suggestedPriority: TicketPriority.HIGH,
+    confidenceScore: 0.82,
+    suggestedReply:
+      "Thanks for the detailed logs. PulseDesk expects webhook endpoints to return a 2xx response within ten seconds without redirects. If your endpoint logs show 200 responses, please also check response timing, signing-secret validation, and whether an upstream proxy is returning a redirect or timeout before the final 200.",
+    ragSnippets: [
+      {
+        documentId: "demo_kb_api_webhooks",
+        title: "API keys and webhook delivery guide",
+        excerpt: "Webhook endpoints must return a 2xx response within ten seconds. PulseDesk retries failed deliveries with exponential backoff."
+      }
+    ]
+  },
+  {
+    id: "demo_suggestion_pdf_upload_bug",
+    ticketId: "demo_ticket_pdf_upload_bug",
+    knowledgeDocumentId: "demo_kb_uploads",
+    status: AiSuggestionStatus.GENERATED,
+    suggestedCategory: TicketCategory.BUG,
+    suggestedPriority: TicketPriority.HIGH,
+    confidenceScore: 0.78,
+    suggestedReply:
+      "A 14 MB PDF is below the 25 MB upload limit, so this may be browser, network, or PDF-processing related. Please confirm the browser version, whether the upload succeeds in an incognito window, and whether the PDF contains selectable text. If it still fails, we should capture the file metadata and escalate as an upload bug.",
+    ragSnippets: [
+      {
+        documentId: "demo_kb_uploads",
+        title: "Attachment upload limits and supported file types",
+        excerpt: "The maximum upload size for a single file is 25 MB. For PDFs, text extraction works best when the PDF contains selectable text."
+      }
+    ]
+  },
+  {
+    id: "demo_suggestion_export_timeout",
+    ticketId: "demo_ticket_export_timeout",
+    knowledgeDocumentId: "demo_kb_exports",
+    status: AiSuggestionStatus.GENERATED,
+    suggestedCategory: TicketCategory.TECHNICAL,
+    suggestedPriority: TicketPriority.MEDIUM,
+    confidenceScore: 0.81,
+    suggestedReply:
+      "Large ticket exports are processed asynchronously and emailed when ready. Since this export has been queued for more than thirty minutes, please share the workspace name and export date range so we can check the queued job and retry it if needed.",
+    ragSnippets: [
+      {
+        documentId: "demo_kb_exports",
+        title: "Data export and reporting FAQ",
+        excerpt: "If an export remains queued for more than thirty minutes, support should check the workspace size and retry the export job."
+      }
+    ]
+  },
+  {
+    id: "demo_suggestion_api_key_scope",
+    ticketId: "demo_ticket_api_key_scope",
+    knowledgeDocumentId: "demo_kb_api_webhooks",
+    status: AiSuggestionStatus.GENERATED,
+    suggestedCategory: TicketCategory.TECHNICAL,
+    suggestedPriority: TicketPriority.MEDIUM,
+    confidenceScore: 0.74,
+    suggestedReply:
+      "API keys are created by workspace admins from Developer Settings and should be stored in a secrets manager. I can confirm the current key options for your workspace and help identify the safest integration path for a reporting tool.",
+    ragSnippets: [
+      {
+        documentId: "demo_kb_api_webhooks",
+        title: "API keys and webhook delivery guide",
+        excerpt: "API keys are created by workspace admins from Developer Settings. Keys are shown once and should be stored in a secrets manager."
+      }
+    ]
   }
 ];
 
@@ -371,7 +484,8 @@ seed()
         prisma.ticketAiSuggestion.count()
       ]);
 
-    console.info("Seed complete", {
+    console.info(isDemoMode ? "Demo seed complete" : "Seed complete", {
+      demoMode: isDemoMode,
       users: userCount,
       customers: customerCount,
       tickets: ticketCount,

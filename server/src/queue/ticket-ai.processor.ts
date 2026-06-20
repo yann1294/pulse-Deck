@@ -7,12 +7,18 @@ import {
   TicketPriority
 } from "@prisma/client";
 import type { Job } from "bullmq";
+import type {
+  AiSuggestionStatus as ApiAiSuggestionStatus,
+  TicketCategory as ApiTicketCategory,
+  TicketPriority as ApiTicketPriority
+} from "@pulsedesk/shared";
 import { AiService } from "../ai/ai.service";
 import { buildClassifyTicketPrompt } from "../ai/prompts/classify-ticket.prompt";
 import { buildPrioritizeTicketPrompt } from "../ai/prompts/prioritize-ticket.prompt";
 import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
 import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RealtimeService } from "../realtime/realtime.service";
 import { TICKET_AI_QUEUE_NAME, type TicketAiJobData, type TicketAiJobName } from "./queue.service";
 
 type TicketAiJob = Job<TicketAiJobData, unknown, TicketAiJobName>;
@@ -64,7 +70,8 @@ export class TicketAiProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly knowledgeBaseService: KnowledgeBaseService
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly realtimeService: RealtimeService
   ) {
     super();
   }
@@ -116,7 +123,7 @@ export class TicketAiProcessor extends WorkerHost {
         )
       );
 
-      await this.prisma.ticket.update({
+      const updatedTicket = await this.prisma.ticket.update({
         where: { id: ticket.id },
         data: { category: classification.category }
       });
@@ -136,6 +143,16 @@ export class TicketAiProcessor extends WorkerHost {
       this.logger.log(
         `Classified ticket ${ticket.id} as ${classification.category} with confidence ${classification.confidence}`
       );
+      this.realtimeService.emitTicketUpdated(ticket.id, {
+        category: toApiCategory(updatedTicket.category),
+        aiStatus: "GENERATED",
+        latestAiSuggestion: {
+          id: suggestion.id,
+          status: toApiAiSuggestionStatus(suggestion.status),
+          createdAt: suggestion.createdAt.toISOString()
+        },
+        updatedAt: updatedTicket.updatedAt.toISOString()
+      });
 
       return { status: "generated", suggestionId: suggestion.id };
     } catch (error: unknown) {
@@ -164,7 +181,7 @@ export class TicketAiProcessor extends WorkerHost {
         )
       );
 
-      await this.prisma.ticket.update({
+      const updatedTicket = await this.prisma.ticket.update({
         where: { id: ticket.id },
         data: { priority: priority.priority }
       });
@@ -184,6 +201,16 @@ export class TicketAiProcessor extends WorkerHost {
       this.logger.log(
         `Prioritized ticket ${ticket.id} as ${priority.priority} with confidence ${priority.confidence}`
       );
+      this.realtimeService.emitTicketUpdated(ticket.id, {
+        priority: toApiPriority(updatedTicket.priority),
+        aiStatus: "GENERATED",
+        latestAiSuggestion: {
+          id: suggestion.id,
+          status: toApiAiSuggestionStatus(suggestion.status),
+          createdAt: suggestion.createdAt.toISOString()
+        },
+        updatedAt: updatedTicket.updatedAt.toISOString()
+      });
 
       return { status: "generated", suggestionId: suggestion.id };
     } catch (error: unknown) {
@@ -247,6 +274,7 @@ export class TicketAiProcessor extends WorkerHost {
       this.logger.log(
         `Generated suggested reply for ticket ${ticket.id} with confidence ${reply.confidence}`
       );
+      this.realtimeService.emitAiSuggestionReady(ticket.id);
 
       return { status: "generated", suggestionId: suggestion.id };
     } catch (error: unknown) {
@@ -303,6 +331,14 @@ export class TicketAiProcessor extends WorkerHost {
           snippets,
           failure: errorMessage
         })
+      }
+    });
+    this.realtimeService.emitTicketUpdated(ticketId, {
+      aiStatus: "FAILED",
+      latestAiSuggestion: {
+        id: suggestion.id,
+        status: toApiAiSuggestionStatus(suggestion.status),
+        createdAt: suggestion.createdAt.toISOString()
       }
     });
 
@@ -427,6 +463,42 @@ function parseConfidence(value: unknown, label: string): number {
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function toApiCategory(category: TicketCategory): ApiTicketCategory {
+  const categoryMap: Record<TicketCategory, ApiTicketCategory> = {
+    BILLING: "billing",
+    TECHNICAL: "technical",
+    ACCOUNT: "account",
+    BUG: "bug",
+    FEATURE_REQUEST: "feature_request",
+    OTHER: "other"
+  };
+
+  return categoryMap[category];
+}
+
+function toApiPriority(priority: TicketPriority): ApiTicketPriority {
+  const priorityMap: Record<TicketPriority, ApiTicketPriority> = {
+    LOW: "low",
+    MEDIUM: "medium",
+    HIGH: "high",
+    URGENT: "urgent"
+  };
+
+  return priorityMap[priority];
+}
+
+function toApiAiSuggestionStatus(status: AiSuggestionStatus): ApiAiSuggestionStatus {
+  const statusMap: Record<AiSuggestionStatus, ApiAiSuggestionStatus> = {
+    PENDING: "pending",
+    GENERATED: "generated",
+    APPROVED: "approved",
+    EDITED: "edited",
+    FAILED: "failed"
+  };
+
+  return statusMap[status];
 }
 
 function getErrorMessage(error: unknown): string {
