@@ -580,27 +580,33 @@ export class TicketsService {
     };
   }
 
-  private toAiSuggestionDto(
-    suggestion: Prisma.TicketAiSuggestionGetPayload<{}>
-  ): AiSuggestionDTO {
-    return {
-      id: suggestion.id,
-      ticketId: suggestion.ticketId,
-      status: toApiAiSuggestionStatus(suggestion.status),
-      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
-      ...(suggestion.suggestedCategory
-        ? { suggestedCategory: toApiCategory(suggestion.suggestedCategory) }
+	  private toAiSuggestionDto(
+	    suggestion: Prisma.TicketAiSuggestionGetPayload<{}>
+	  ): AiSuggestionDTO {
+	    const retrievedContext = suggestion.retrievedContext ?? undefined;
+	    const summary = getSuggestionSummary(retrievedContext);
+
+	    return {
+	      id: suggestion.id,
+	      ticketId: suggestion.ticketId,
+	      status: toApiAiSuggestionStatus(suggestion.status),
+	      ...(summary ? { summary } : {}),
+	      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
+	      ...(suggestion.suggestedCategory
+	        ? { suggestedCategory: toApiCategory(suggestion.suggestedCategory) }
         : {}),
       ...(suggestion.suggestedPriority
         ? { suggestedPriority: toApiPriority(suggestion.suggestedPriority) }
         : {}),
-      ...(typeof suggestion.confidenceScore === "number"
-        ? { confidenceScore: suggestion.confidenceScore }
-        : {}),
-      citations: [],
-      ...(suggestion.errorMessage ? { errorMessage: suggestion.errorMessage } : {}),
-      createdAt: suggestion.createdAt.toISOString(),
-      updatedAt: suggestion.updatedAt.toISOString()
+	      ...(typeof suggestion.confidenceScore === "number"
+	        ? { confidenceScore: suggestion.confidenceScore }
+	        : {}),
+	      citations: [],
+	      ...(suggestion.ragSnippets ? { ragSnippets: suggestion.ragSnippets } : {}),
+	      ...(retrievedContext ? { retrievedContext } : {}),
+	      ...(suggestion.errorMessage ? { errorMessage: suggestion.errorMessage } : {}),
+	      createdAt: suggestion.createdAt.toISOString(),
+	      updatedAt: suggestion.updatedAt.toISOString()
     };
   }
 
@@ -830,4 +836,19 @@ function getFailureMessage(error: unknown): string {
   }
 
   return "Unknown AI suggestion generation error";
+}
+
+function getSuggestionSummary(retrievedContext: Prisma.JsonValue | undefined): string | undefined {
+  if (!retrievedContext || typeof retrievedContext !== "object" || Array.isArray(retrievedContext)) {
+    return undefined;
+  }
+
+  const reply = (retrievedContext as Record<string, unknown>).reply;
+
+  if (!reply || typeof reply !== "object" || Array.isArray(reply)) {
+    return undefined;
+  }
+
+  const summary = (reply as Record<string, unknown>).summary;
+  return typeof summary === "string" && summary.trim() ? summary.trim() : undefined;
 }
