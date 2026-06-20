@@ -116,6 +116,9 @@ importers:
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
+      prisma:
+        specifier: ^6.19.3
+        version: 6.19.3(typescript@5.9.3)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -132,9 +135,6 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.21
-      prisma:
-        specifier: ^6.19.3
-        version: 6.19.3(typescript@5.9.3)
       tsx:
         specifier: ^4.22.4
         version: 4.22.4

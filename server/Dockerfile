@@ -23,7 +23,6 @@ COPY server/src ./server/src
 RUN pnpm --filter @pulsedesk/server prisma:generate
 RUN pnpm --filter @pulsedesk/shared build
 RUN pnpm --filter @pulsedesk/server build
-RUN CI=true pnpm prune --prod
 
 FROM node:20-alpine AS runner
 ENV NODE_ENV="production"
@@ -37,14 +36,16 @@ RUN apk add --no-cache openssl \
   && addgroup -S nodejs \
   && adduser -S nestjs -G nodejs
 
-COPY --from=build --chown=nestjs:nodejs /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-COPY --from=build --chown=nestjs:nodejs /app/node_modules ./node_modules
-COPY --from=build --chown=nestjs:nodejs /app/server/package.json ./server/package.json
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY server/package.json ./server/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
+RUN pnpm install --prod --frozen-lockfile --filter @pulsedesk/server...
+
 COPY --from=build --chown=nestjs:nodejs /app/server/dist ./server/dist
 COPY --from=build --chown=nestjs:nodejs /app/server/prisma ./server/prisma
-COPY --from=build --chown=nestjs:nodejs /app/server/node_modules ./server/node_modules
-COPY --from=build --chown=nestjs:nodejs /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build --chown=nestjs:nodejs /app/packages/shared/dist ./packages/shared/dist
+RUN pnpm --filter @pulsedesk/server prisma:generate
+RUN chown -R nestjs:nodejs /app
 
 USER nestjs
 WORKDIR /app/server
