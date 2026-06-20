@@ -34,9 +34,12 @@ NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
 NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
+NEXT_PUBLIC_DEMO_MODE=false
 ```
 
 `NEXT_PUBLIC_API_URL` must point at the public Railway backend URL. The same URL is used by REST calls and Socket.IO.
+
+Set `NEXT_PUBLIC_DEMO_MODE=true` only for portfolio/demo deployments where the dashboard should show the Demo Workspace banner.
 
 ## Backend: Railway
 
@@ -85,9 +88,12 @@ GEMINI_API_KEY=...
 GEMINI_GENERATION_MODEL=gemini-3.5-flash
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 EMBEDDING_DIM=768
+DEMO_MODE=false
 ```
 
 Use Railway variable references when possible instead of copying credentials manually.
+
+Set `DEMO_MODE=true` only when running the demo seed command. Keep it `false` for normal production operation.
 
 ## PostgreSQL pgvector
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "AI-powered customer support ticketing SaaS MVP.",
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "dev:client": "pnpm --filter @pulsedesk/client dev",

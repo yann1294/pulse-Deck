@@ -12,6 +12,15 @@ docker compose up -d
 
 Optional: copy `.env.example` to `.env` at the repository root before starting services if you want to override the local Docker defaults.
 
+For local app development, also copy the app-specific examples:
+
+```sh
+cp client/.env.local.example client/.env.local
+cp server/.env.example server/.env
+```
+
+Update the Clerk and Gemini placeholders before using authenticated dashboard features or AI generation.
+
 Check service status:
 
 ```sh
@@ -25,6 +34,16 @@ The local service defaults are:
 - User: `pulsedesk`
 - Password: `pulsedesk`
 - Redis: `localhost:6379`
+
+## Environment Files
+
+PulseDesk uses three environment examples:
+
+- `.env.example`: Docker Compose defaults for PostgreSQL, Redis, and the optional server profile.
+- `client/.env.local.example`: Next.js variables, including Clerk, `NEXT_PUBLIC_API_URL`, and `NEXT_PUBLIC_DEMO_MODE`.
+- `server/.env.example`: NestJS variables, including `DATABASE_URL`, Redis, CORS `CLIENT_URL`, Clerk, Gemini, embeddings, and `DEMO_MODE`.
+
+Do not commit real `.env`, `.env.local`, Clerk, Gemini, database, or Redis credentials.
 
 ## Verify PostgreSQL
 
