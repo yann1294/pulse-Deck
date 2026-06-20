@@ -55,6 +55,8 @@ const categories: Array<{ label: string; value: FilterValue<TicketCategory> }> =
   { label: "Other", value: "other" }
 ];
 
+const isDemoWorkspace = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export function AdminDashboard() {
   const router = useRouter();
   const [status, setStatus] = useState<FilterValue<TicketStatus>>("all");
@@ -110,6 +112,7 @@ export function AdminDashboard() {
       />
 
       {realtime.notice ? <RealtimeNotice notice={realtime.notice} /> : null}
+      {isDemoWorkspace ? <DemoWorkspaceBanner /> : null}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryQuery.isLoading
@@ -189,6 +192,27 @@ export function AdminDashboard() {
         )}
       </section>
     </DashboardShell>
+  );
+}
+
+function DemoWorkspaceBanner() {
+  return (
+    <Card className="mt-6 border-emerald-400/25 bg-gradient-to-br from-emerald-400/10 to-zinc-950 p-4 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <Badge tone="emerald">Demo Workspace</Badge>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-300">
+            This workspace uses fake customers, tickets, knowledge-base content, and AI suggestions for recruiter review.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 px-3 py-2">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Load data</p>
+          <code className="mt-1 block break-words text-xs text-emerald-100">
+            pnpm demo:seed
+          </code>
+        </div>
+      </div>
+    </Card>
   );
 }
 

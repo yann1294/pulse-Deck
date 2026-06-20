@@ -14,7 +14,8 @@
     "db:generate": "pnpm --filter @pulsedesk/server db:generate",
     "db:studio": "pnpm --filter @pulsedesk/server db:studio",
     "db:reset": "pnpm --filter @pulsedesk/server db:reset",
-    "db:seed": "pnpm --filter @pulsedesk/server db:seed"
+    "db:seed": "pnpm --filter @pulsedesk/server db:seed",
+    "demo:seed": "pnpm --filter @pulsedesk/server demo:seed"
   },
   "engines": {
     "node": ">=20.0.0",
