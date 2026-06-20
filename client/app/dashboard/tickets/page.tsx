@@ -1,6 +1,5 @@
-import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
-import { routes } from "@/lib/routes";
+import { TicketsWorkspace } from "@/components/dashboard/TicketsWorkspace";
 
 export default function TicketsPage() {
-  return <AdminDashboard activeHref={routes.tickets()} title="Tickets" />;
+  return <TicketsWorkspace />;
 }
