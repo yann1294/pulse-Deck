@@ -87,6 +87,11 @@ export interface CustomerListItemDTO {
   updatedAt: string;
 }
 
+export interface CustomerDetailDTO extends CustomerListItemDTO {
+  resolvedTicketCount: number;
+  tickets: TicketDTO[];
+}
+
 export interface ListCustomersParams {
   search?: string;
   page?: number;
@@ -248,6 +253,37 @@ export async function listCustomers(
     pageSize: params.limit ?? customers.length,
     totalItems: customers.length,
     totalPages: customers.length > 0 ? 1 : 0
+  };
+}
+
+export async function getCustomer(customerId: string): Promise<CustomerDetailDTO | null> {
+  // MVP fallback: derive customer detail from tickets until the backend exposes GET /customers/:id.
+  const tickets = await listTickets({ page: 1, limit: 100 });
+  const customerTickets = tickets.data
+    .filter((ticket) => ticket.customer?.id === customerId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const customer = customerTickets[0]?.customer;
+
+  if (!customer) {
+    return null;
+  }
+
+  const openTicketCount = customerTickets.filter((ticket) => ticket.status !== "resolved").length;
+  const resolvedTicketCount = customerTickets.filter((ticket) => ticket.status === "resolved").length;
+  const latestTicketAt = customerTickets[0]?.updatedAt;
+
+  return {
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    ...(customer.companyName ? { companyName: customer.companyName } : {}),
+    ticketCount: customerTickets.length,
+    openTicketCount,
+    resolvedTicketCount,
+    ...(latestTicketAt ? { latestTicketAt } : {}),
+    createdAt: customer.createdAt,
+    updatedAt: customer.updatedAt,
+    tickets: customerTickets
   };
 }
 

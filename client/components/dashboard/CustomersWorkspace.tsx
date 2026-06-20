@@ -12,13 +12,10 @@ import {
   ErrorState,
   Input,
   LoadingSkeleton,
+  PriorityBadge,
   StatusBadge
 } from "@/components/ui";
-import {
-  listCustomers,
-  listTickets,
-  type CustomerListItemDTO
-} from "@/lib/api";
+import { getCustomer, listCustomers, type CustomerListItemDTO } from "@/lib/api";
 import { routes } from "@/lib/routes";
 
 export function CustomersWorkspace() {
@@ -108,22 +105,21 @@ export function CustomersWorkspace() {
 
 export function CustomerDetailWorkspace({ customerId }: { customerId: string }) {
   const router = useRouter();
-  const ticketsQuery = useQuery({
-    queryKey: ["tickets", "customer", customerId],
-    queryFn: () => listTickets({ page: 1, limit: 100 })
+  const customerQuery = useQuery({
+    queryKey: ["customer", customerId],
+    queryFn: () => getCustomer(customerId)
   });
-  const tickets = (ticketsQuery.data?.data ?? []).filter((ticket) => ticket.customer?.id === customerId);
-  const customer = tickets[0]?.customer;
+  const customer = customerQuery.data;
 
   return (
     <DashboardShell activeHref={routes.customers()} title="Customer detail">
-      {ticketsQuery.isLoading ? (
-        <LoadingSkeleton label="Loading customer" rows={6} />
-      ) : ticketsQuery.isError ? (
+      {customerQuery.isLoading ? (
+        <CustomerDetailSkeleton />
+      ) : customerQuery.isError ? (
         <ErrorState
           actionLabel="Retry"
-          error={ticketsQuery.error}
-          onAction={() => void ticketsQuery.refetch()}
+          error={customerQuery.error}
+          onAction={() => void customerQuery.refetch()}
           title="Could not load customer"
         />
       ) : !customer ? (
@@ -133,7 +129,7 @@ export function CustomerDetailWorkspace({ customerId }: { customerId: string }) 
               Back to customers
             </Button>
           }
-          description="The selected customer was not found in the current ticket data."
+          description="The selected customer was not found. Return to the customer list and choose another record."
           title="Customer not found"
         />
       ) : (
@@ -149,35 +145,104 @@ export function CustomerDetailWorkspace({ customerId }: { customerId: string }) 
             title={customer.name}
           />
 
-          <div className="mt-8 grid gap-6 xl:grid-cols-[24rem_1fr]">
-            <Card className="p-5">
-              <h2 className="text-base font-semibold text-white">Customer profile</h2>
-              <div className="mt-5 space-y-4 text-sm">
-                <InfoRow label="Email" value={customer.email} />
-                <InfoRow label="Company" value={customer.companyName ?? "Not provided"} />
-                <InfoRow label="Known tickets" value={String(tickets.length)} />
-                <InfoRow label="Customer since" value={formatDate(customer.createdAt)} />
-              </div>
-            </Card>
-
-            <section className="space-y-3">
-              {tickets.map((ticket) => (
-                <button
-                  className="focus-ring w-full rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left shadow-panel transition hover:border-zinc-700 hover:bg-zinc-900/80"
-                  key={ticket.id}
-                  onClick={() => router.push(routes.ticketDetail(ticket.id))}
-                  type="button"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</h3>
-                      <p className="mt-1 text-xs text-zinc-400">{formatDate(ticket.createdAt)}</p>
-                    </div>
-                    <StatusBadge status={ticket.status} />
+          <div className="mt-8 grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+            <div className="space-y-6">
+              <Card className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-semibold text-white">Customer profile</h2>
+                    <p className="mt-1 break-words text-sm text-zinc-400">
+                      {customer.companyName ?? "No company provided"}
+                    </p>
                   </div>
-                  <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">{ticket.description}</p>
-                </button>
-              ))}
+                  <Badge className="shrink-0 whitespace-nowrap" tone="teal">
+                    Customer
+                  </Badge>
+                </div>
+                <div className="mt-5 space-y-4 text-sm">
+                  <InfoRow label="Name" value={customer.name} />
+                  <InfoRow label="Email" value={customer.email} />
+                  <InfoRow label="Company" value={customer.companyName ?? "Not provided"} />
+                  <InfoRow label="Customer since" value={formatDate(customer.createdAt)} />
+                  <InfoRow
+                    label="Latest ticket"
+                    value={customer.latestTicketAt ? formatDate(customer.latestTicketAt) : "No tickets"}
+                  />
+                </div>
+              </Card>
+
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <CustomerStatCard
+                  helper="All known support requests"
+                  label="Total tickets"
+                  tone="teal"
+                  value={String(customer.ticketCount)}
+                />
+                <CustomerStatCard
+                  helper="Still needs support action"
+                  label="Open tickets"
+                  tone={(customer.openTicketCount ?? 0) > 0 ? "amber" : "emerald"}
+                  value={String(customer.openTicketCount ?? 0)}
+                />
+                <CustomerStatCard
+                  helper="Closed support requests"
+                  label="Resolved tickets"
+                  tone="emerald"
+                  value={String(customer.resolvedTicketCount)}
+                />
+              </div>
+            </div>
+
+            <section>
+              <Card className="p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-white">Recent ticket history</h2>
+                    <p className="mt-1 text-sm leading-6 text-zinc-400">
+                      Open any ticket to review the full conversation, AI suggestion, and customer context.
+                    </p>
+                  </div>
+                  <Badge tone={(customer.openTicketCount ?? 0) > 0 ? "amber" : "emerald"}>
+                    {customer.openTicketCount ?? 0} open
+                  </Badge>
+                </div>
+
+                {customer.tickets.length === 0 ? (
+                  <div className="mt-5">
+                    <EmptyState
+                      description="This customer does not have ticket history yet."
+                      title="No ticket history"
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-5 space-y-3">
+                    {customer.tickets.map((ticket) => (
+                      <button
+                        className="focus-ring w-full rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900/80"
+                        key={ticket.id}
+                        onClick={() => router.push(routes.ticketDetail(ticket.id))}
+                        type="button"
+                      >
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">
+                              {ticket.subject}
+                            </h3>
+                            <p className="mt-1 text-xs text-zinc-400">{formatDate(ticket.createdAt)}</p>
+                          </div>
+                          <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+                            <StatusBadge status={ticket.status} />
+                            <PriorityBadge priority={ticket.priority} />
+                          </div>
+                        </div>
+                        <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">
+                          {ticket.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Card>
             </section>
           </div>
         </>
@@ -272,8 +337,16 @@ function CustomerResults({
               </Badge>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <CustomerMetric label="Open tickets" tone={(customer.openTicketCount ?? 0) > 0 ? "amber" : "emerald"} value={String(customer.openTicketCount ?? 0)} />
-              <CustomerMetric label="Latest ticket" tone="neutral" value={customer.latestTicketAt ? formatDate(customer.latestTicketAt) : "No tickets"} />
+              <CustomerMetric
+                label="Open tickets"
+                tone={(customer.openTicketCount ?? 0) > 0 ? "amber" : "emerald"}
+                value={String(customer.openTicketCount ?? 0)}
+              />
+              <CustomerMetric
+                label="Latest ticket"
+                tone="neutral"
+                value={customer.latestTicketAt ? formatDate(customer.latestTicketAt) : "No tickets"}
+              />
             </div>
           </button>
         ))}
@@ -310,6 +383,26 @@ function CustomersSkeleton() {
   );
 }
 
+function CustomerDetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      <LoadingSkeleton label="Loading customer profile" rows={3} />
+      <div className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+        <Card className="p-5">
+          <div className="h-4 w-36 rounded-full bg-zinc-800" />
+          <div className="mt-5 space-y-4">
+            <div className="h-3 rounded-full bg-zinc-800" />
+            <div className="h-3 rounded-full bg-zinc-800" />
+            <div className="h-3 rounded-full bg-zinc-800" />
+            <div className="h-3 rounded-full bg-zinc-800" />
+          </div>
+        </Card>
+        <LoadingSkeleton label="Loading ticket history" rows={6} />
+      </div>
+    </div>
+  );
+}
+
 function CustomerMetric({
   label,
   value,
@@ -330,6 +423,33 @@ function CustomerMetric({
       <p className="text-xs font-medium uppercase tracking-[0.16em] opacity-70">{label}</p>
       <p className="mt-1 break-words text-sm font-semibold">{value}</p>
     </div>
+  );
+}
+
+function CustomerStatCard({
+  label,
+  value,
+  helper,
+  tone
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  tone: "emerald" | "teal" | "amber" | "rose";
+}) {
+  const toneClasses = {
+    emerald: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+    teal: "border-teal-400/20 bg-teal-400/10 text-teal-100",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-100",
+    rose: "border-rose-400/20 bg-rose-400/10 text-rose-100"
+  };
+
+  return (
+    <Card className={`p-4 ${toneClasses[tone]}`}>
+      <p className="text-xs font-medium uppercase tracking-[0.16em] opacity-75">{label}</p>
+      <p className="mt-3 text-2xl font-semibold">{value}</p>
+      <p className="mt-1 text-xs leading-5 opacity-75">{helper}</p>
+    </Card>
   );
 }
 
