@@ -1,6 +1,7 @@
 import { ClerkLoaded, ClerkLoading, SignIn } from "@clerk/nextjs";
 import { AuthShell } from "@/components/layout";
 import { LoadingSkeleton } from "@/components/ui";
+import { routes } from "@/lib/routes";
 
 export default function SignInPage() {
   return (
@@ -10,10 +11,10 @@ export default function SignInPage() {
       </ClerkLoading>
       <ClerkLoaded>
         <SignIn
-          fallbackRedirectUrl="/dashboard"
-          path="/sign-in"
+          fallbackRedirectUrl={routes.dashboard()}
+          path={routes.signIn()}
           routing="path"
-          signUpUrl="/sign-up"
+          signUpUrl={routes.signUp()}
           appearance={{
             variables: {
               colorPrimary: "#10b981",

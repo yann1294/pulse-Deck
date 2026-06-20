@@ -24,6 +24,7 @@ import {
   StatusBadge
 } from "@/components/ui";
 import { listTickets, type ListTicketsParams } from "@/lib/api";
+import { routes } from "@/lib/routes";
 import { useTicketRealtime } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,15 @@ const categories: Array<{ label: string; value: FilterValue<TicketCategory> }> =
 
 const isDemoWorkspace = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  activeHref?: string;
+  title?: string;
+}
+
+export function AdminDashboard({
+  activeHref = routes.dashboard(),
+  title = "PulseDesk dashboard"
+}: AdminDashboardProps) {
   const router = useRouter();
   const [status, setStatus] = useState<FilterValue<TicketStatus>>("all");
   const [priority, setPriority] = useState<FilterValue<TicketPriority>>("all");
@@ -98,7 +107,7 @@ export function AdminDashboard() {
   }
 
   return (
-    <DashboardShell activeHref="/dashboard" title="PulseDesk dashboard">
+    <DashboardShell activeHref={activeHref} title={title}>
       <PageHeader
         actions={
           <>
@@ -196,7 +205,7 @@ export function AdminDashboard() {
           />
         ) : (
           <TicketResults
-            onOpenTicket={(ticketId) => router.push(`/dashboard/tickets/${ticketId}`)}
+            onOpenTicket={(ticketId) => router.push(routes.ticketDetail(ticketId))}
             tickets={tickets}
           />
         )}

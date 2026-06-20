@@ -16,6 +16,7 @@ import {
   StatusBadge
 } from "@/components/ui";
 import { generateAiSuggestion, getTicket, updateTicketStatus } from "@/lib/api";
+import { routes } from "@/lib/routes";
 import { useTicketRealtime } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
@@ -80,7 +81,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
   );
 
   return (
-    <DashboardShell activeHref="/dashboard/tickets" title="Ticket detail">
+    <DashboardShell activeHref={routes.tickets()} title="Ticket detail">
       {ticketQuery.isLoading ? (
         <TicketDetailSkeleton />
       ) : ticketQuery.isError ? (
@@ -93,7 +94,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
       ) : !detail || !ticket ? (
         <EmptyState
           action={
-            <ButtonLink href="/dashboard" variant="secondary">
+            <ButtonLink href={routes.dashboard()} variant="secondary">
               Back to dashboard
             </ButtonLink>
           }
@@ -317,18 +318,18 @@ function AiSuggestionPanel({
               : "border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 to-zinc-950"
         )}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
-              <Badge tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
+              <SafetyTag tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
                 {suggestion ? formatAiStatus(suggestion.status) : "Needs review"}
-              </Badge>
+              </SafetyTag>
               {limitations.needsManualVerification ? (
-                <Badge tone={suggestion?.status === "failed" ? "rose" : "amber"}>
+                <SafetyTag tone={suggestion?.status === "failed" ? "rose" : "amber"}>
                   Needs manual verification
-                </Badge>
+                </SafetyTag>
               ) : (
-                <Badge tone="teal">Grounded draft</Badge>
+                <SafetyTag tone="teal">Grounded draft</SafetyTag>
               )}
             </div>
             <h2 className="mt-4 text-xl font-semibold text-white">AI assistant</h2>
@@ -336,7 +337,9 @@ function AiSuggestionPanel({
               AI-generated draft. Human review is required before any customer response.
             </p>
           </div>
-          <Badge tone={reviewRequired ? "amber" : "rose"}>Human review required</Badge>
+          <Badge className="w-fit shrink-0 whitespace-nowrap" tone={reviewRequired ? "amber" : "rose"}>
+            Human review required
+          </Badge>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -361,14 +364,16 @@ function AiSuggestionPanel({
         </div>
 
         <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-amber-100">Human review required</h3>
               <p className="mt-1 text-sm leading-6 text-amber-100/85">
                 PulseDesk can draft a response, but this MVP does not send AI replies to customers.
               </p>
             </div>
-            <Badge tone="amber">Send disabled</Badge>
+            <Badge className="w-fit shrink-0 whitespace-nowrap" tone="amber">
+              Send disabled
+            </Badge>
           </div>
         </div>
 
@@ -420,7 +425,7 @@ function AiSuggestionPanel({
       <Card className="p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-white">Retrieved knowledge</h3>
-          <Badge tone={snippets.length > 0 ? "teal" : "amber"}>
+          <Badge className="w-fit shrink-0 whitespace-nowrap" tone={snippets.length > 0 ? "teal" : "amber"}>
             {snippets.length > 0 ? `${snippets.length} snippets` : "Needs manual verification"}
           </Badge>
         </div>
@@ -455,6 +460,20 @@ function AiSuggestionPanel({
         </div>
       </Card>
     </aside>
+  );
+}
+
+function SafetyTag({
+  children,
+  tone
+}: {
+  children: React.ReactNode;
+  tone: "emerald" | "teal" | "amber" | "rose" | "neutral";
+}) {
+  return (
+    <Badge className="w-fit max-w-none shrink-0 justify-center whitespace-nowrap px-3" tone={tone}>
+      <span className="leading-none">{children}</span>
+    </Badge>
   );
 }
 

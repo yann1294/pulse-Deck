@@ -19,6 +19,7 @@ import {
   type KnowledgeUploadResultDTO
 } from "@/lib/api";
 import { getUserFriendlyErrorMessage } from "@/lib/api-errors";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type UploadStatus = "processing" | "ready" | "failed";
@@ -131,7 +132,7 @@ export function KnowledgeBaseWorkspace() {
   }
 
   return (
-    <DashboardShell activeHref="/knowledge-base" title="Knowledge base">
+    <DashboardShell activeHref={routes.knowledgeBase()} title="Knowledge base">
       <PageHeader
         actions={<Badge tone="emerald">RAG source library</Badge>}
         description="Upload support PDFs, markdown, and text files that PulseDesk can retrieve when drafting human-reviewed AI replies."

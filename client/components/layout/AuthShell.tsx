@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui";
+import { routes } from "@/lib/routes";
 
 interface AuthShellProps {
   children: ReactNode;
@@ -18,7 +19,7 @@ export function AuthShell({ children, mode }: AuthShellProps) {
       <div className="pointer-events-none absolute -right-28 top-10 -z-10 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-8 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[0.9fr_1.1fr]">
         <section className="mx-auto w-full max-w-xl text-center lg:text-left">
-          <Link className="focus-ring inline-flex items-center gap-3 rounded-full" href="/">
+          <Link className="focus-ring inline-flex items-center gap-3 rounded-full" href={routes.home()}>
             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 text-sm font-black text-zinc-950">
               P
             </span>
