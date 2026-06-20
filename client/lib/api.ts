@@ -75,6 +75,24 @@ export interface ListAiSuggestionsParams {
   limit?: number;
 }
 
+export interface CustomerListItemDTO {
+  id: string;
+  name: string;
+  email: string;
+  companyName?: string;
+  ticketCount: number;
+  openTicketCount?: number;
+  latestTicketAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListCustomersParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface AdminTicketDetailDTO {
   ticket: TicketDTO;
   customer: CustomerDTO;
@@ -172,6 +190,64 @@ export async function listAiSuggestions(
     pageSize: params.limit ?? suggestions.length,
     totalItems: suggestions.length,
     totalPages: suggestions.length > 0 ? 1 : 0
+  };
+}
+
+export async function listCustomers(
+  params: ListCustomersParams = {}
+): Promise<PaginatedResponse<CustomerListItemDTO>> {
+  // MVP fallback: derive customers from ticket list data until the backend exposes GET /customers.
+  const tickets = await listTickets({ page: 1, limit: params.limit ?? 100 });
+  const search = params.search?.trim().toLowerCase();
+  const customers = Array.from(
+    tickets.data.reduce((summaries, ticket) => {
+      if (!ticket.customer) {
+        return summaries;
+      }
+
+      const existing = summaries.get(ticket.customer.id);
+      const latestTicketAt =
+        !existing?.latestTicketAt || ticket.updatedAt > existing.latestTicketAt
+          ? ticket.updatedAt
+          : existing.latestTicketAt;
+
+      summaries.set(ticket.customer.id, {
+        id: ticket.customer.id,
+        name: ticket.customer.name,
+        email: ticket.customer.email,
+        ...(ticket.customer.companyName ? { companyName: ticket.customer.companyName } : {}),
+        ticketCount: (existing?.ticketCount ?? 0) + 1,
+        openTicketCount:
+          (existing?.openTicketCount ?? 0) + (ticket.status === "resolved" ? 0 : 1),
+        latestTicketAt,
+        createdAt: ticket.customer.createdAt,
+        updatedAt: ticket.customer.updatedAt
+      });
+
+      return summaries;
+    }, new Map<string, CustomerListItemDTO>()).values()
+  )
+    .filter((customer) => {
+      if (!search) {
+        return true;
+      }
+
+      return [customer.name, customer.email, customer.companyName]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(search));
+    })
+    .sort((left, right) => {
+      const rightDate = right.latestTicketAt ?? right.updatedAt;
+      const leftDate = left.latestTicketAt ?? left.updatedAt;
+      return rightDate.localeCompare(leftDate);
+    });
+
+  return {
+    data: customers,
+    page: params.page ?? 1,
+    pageSize: params.limit ?? customers.length,
+    totalItems: customers.length,
+    totalPages: customers.length > 0 ? 1 : 0
   };
 }
 
