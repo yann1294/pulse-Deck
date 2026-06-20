@@ -2,6 +2,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { SocketIoAdapter } from "./realtime/socket-io.adapter";
 
 function getPort(configService: ConfigService): number {
   const rawPort = configService.get<string>("PORT", "4000");
@@ -33,6 +34,7 @@ async function bootstrap(): Promise<void> {
     origin: clientUrl,
     credentials: true
   });
+  app.useWebSocketAdapter(new SocketIoAdapter(app, clientUrl));
 
   await app.listen(getPort(configService));
 }

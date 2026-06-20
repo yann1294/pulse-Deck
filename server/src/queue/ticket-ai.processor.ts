@@ -13,6 +13,7 @@ import { buildPrioritizeTicketPrompt } from "../ai/prompts/prioritize-ticket.pro
 import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
 import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RealtimeService } from "../realtime/realtime.service";
 import { TICKET_AI_QUEUE_NAME, type TicketAiJobData, type TicketAiJobName } from "./queue.service";
 
 type TicketAiJob = Job<TicketAiJobData, unknown, TicketAiJobName>;
@@ -64,7 +65,8 @@ export class TicketAiProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly knowledgeBaseService: KnowledgeBaseService
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly realtimeService: RealtimeService
   ) {
     super();
   }
@@ -116,7 +118,7 @@ export class TicketAiProcessor extends WorkerHost {
         )
       );
 
-      await this.prisma.ticket.update({
+      const updatedTicket = await this.prisma.ticket.update({
         where: { id: ticket.id },
         data: { category: classification.category }
       });
@@ -136,6 +138,11 @@ export class TicketAiProcessor extends WorkerHost {
       this.logger.log(
         `Classified ticket ${ticket.id} as ${classification.category} with confidence ${classification.confidence}`
       );
+      this.realtimeService.emitTicketUpdated(ticket.id, {
+        category: updatedTicket.category,
+        updatedAt: updatedTicket.updatedAt.toISOString()
+      });
+      this.realtimeService.emitAiSuggestionReady(ticket.id);
 
       return { status: "generated", suggestionId: suggestion.id };
     } catch (error: unknown) {
@@ -164,7 +171,7 @@ export class TicketAiProcessor extends WorkerHost {
         )
       );
 
-      await this.prisma.ticket.update({
+      const updatedTicket = await this.prisma.ticket.update({
         where: { id: ticket.id },
         data: { priority: priority.priority }
       });
@@ -184,6 +191,11 @@ export class TicketAiProcessor extends WorkerHost {
       this.logger.log(
         `Prioritized ticket ${ticket.id} as ${priority.priority} with confidence ${priority.confidence}`
       );
+      this.realtimeService.emitTicketUpdated(ticket.id, {
+        priority: updatedTicket.priority,
+        updatedAt: updatedTicket.updatedAt.toISOString()
+      });
+      this.realtimeService.emitAiSuggestionReady(ticket.id);
 
       return { status: "generated", suggestionId: suggestion.id };
     } catch (error: unknown) {
@@ -247,6 +259,7 @@ export class TicketAiProcessor extends WorkerHost {
       this.logger.log(
         `Generated suggested reply for ticket ${ticket.id} with confidence ${reply.confidence}`
       );
+      this.realtimeService.emitAiSuggestionReady(ticket.id);
 
       return { status: "generated", suggestionId: suggestion.id };
     } catch (error: unknown) {
