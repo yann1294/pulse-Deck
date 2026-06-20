@@ -92,6 +92,37 @@ export interface CustomerDetailDTO extends CustomerListItemDTO {
   tickets: TicketDTO[];
 }
 
+interface CustomerApiListItemDTO {
+  id: string;
+  name: string;
+  email: string;
+  company?: string;
+  companyName?: string;
+  createdAt: string;
+  ticketCount: number;
+  openTicketCount: number;
+  resolvedTicketCount?: number;
+  latestTicketAt?: string;
+}
+
+interface CustomerApiDetailDTO {
+  customer: CustomerApiListItemDTO;
+  metrics: {
+    totalTickets: number;
+    openTickets: number;
+    resolvedTickets: number;
+  };
+  recentTickets: Array<{
+    id: string;
+    title: string;
+    status: TicketStatus;
+    priority: TicketPriority;
+    category: TicketCategory;
+    createdAt: string;
+    latestAiSuggestionStatus?: AiSuggestionStatus;
+  }>;
+}
+
 export interface ListCustomersParams {
   search?: string;
   page?: number;
@@ -201,89 +232,50 @@ export async function listAiSuggestions(
 export async function listCustomers(
   params: ListCustomersParams = {}
 ): Promise<PaginatedResponse<CustomerListItemDTO>> {
-  // MVP fallback: derive customers from ticket list data until the backend exposes GET /customers.
-  const tickets = await listTickets({ page: 1, limit: params.limit ?? 100 });
-  const search = params.search?.trim().toLowerCase();
-  const customers = Array.from(
-    tickets.data.reduce((summaries, ticket) => {
-      if (!ticket.customer) {
-        return summaries;
-      }
-
-      const existing = summaries.get(ticket.customer.id);
-      const latestTicketAt =
-        !existing?.latestTicketAt || ticket.updatedAt > existing.latestTicketAt
-          ? ticket.updatedAt
-          : existing.latestTicketAt;
-
-      summaries.set(ticket.customer.id, {
-        id: ticket.customer.id,
-        name: ticket.customer.name,
-        email: ticket.customer.email,
-        ...(ticket.customer.companyName ? { companyName: ticket.customer.companyName } : {}),
-        ticketCount: (existing?.ticketCount ?? 0) + 1,
-        openTicketCount:
-          (existing?.openTicketCount ?? 0) + (ticket.status === "resolved" ? 0 : 1),
-        latestTicketAt,
-        createdAt: ticket.customer.createdAt,
-        updatedAt: ticket.customer.updatedAt
-      });
-
-      return summaries;
-    }, new Map<string, CustomerListItemDTO>()).values()
-  )
-    .filter((customer) => {
-      if (!search) {
-        return true;
-      }
-
-      return [customer.name, customer.email, customer.companyName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(search));
-    })
-    .sort((left, right) => {
-      const rightDate = right.latestTicketAt ?? right.updatedAt;
-      const leftDate = left.latestTicketAt ?? left.updatedAt;
-      return rightDate.localeCompare(leftDate);
-    });
+  const response = await request<PaginatedResponse<CustomerApiListItemDTO>>({
+    method: "GET",
+    url: "/customers",
+    params
+  });
 
   return {
-    data: customers,
-    page: params.page ?? 1,
-    pageSize: params.limit ?? customers.length,
-    totalItems: customers.length,
-    totalPages: customers.length > 0 ? 1 : 0
+    ...response,
+    data: response.data.map(toCustomerListItem)
   };
 }
 
 export async function getCustomer(customerId: string): Promise<CustomerDetailDTO | null> {
-  // MVP fallback: derive customer detail from tickets until the backend exposes GET /customers/:id.
-  const tickets = await listTickets({ page: 1, limit: 100 });
-  const customerTickets = tickets.data
-    .filter((ticket) => ticket.customer?.id === customerId)
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-  const customer = customerTickets[0]?.customer;
-
-  if (!customer) {
-    return null;
-  }
-
-  const openTicketCount = customerTickets.filter((ticket) => ticket.status !== "resolved").length;
-  const resolvedTicketCount = customerTickets.filter((ticket) => ticket.status === "resolved").length;
-  const latestTicketAt = customerTickets[0]?.updatedAt;
+  const response = await request<CustomerApiDetailDTO>({
+    method: "GET",
+    url: `/customers/${encodeURIComponent(customerId)}`
+  });
+  const customer = toCustomerListItem(response.customer);
 
   return {
-    id: customer.id,
-    name: customer.name,
-    email: customer.email,
-    ...(customer.companyName ? { companyName: customer.companyName } : {}),
-    ticketCount: customerTickets.length,
-    openTicketCount,
-    resolvedTicketCount,
-    ...(latestTicketAt ? { latestTicketAt } : {}),
-    createdAt: customer.createdAt,
-    updatedAt: customer.updatedAt,
-    tickets: customerTickets
+    ...customer,
+    ticketCount: response.metrics.totalTickets,
+    openTicketCount: response.metrics.openTickets,
+    resolvedTicketCount: response.metrics.resolvedTickets,
+    tickets: response.recentTickets.map((ticket) => ({
+      id: ticket.id,
+      subject: ticket.title,
+      description: "",
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category,
+      customerId,
+      ...(ticket.latestAiSuggestionStatus
+        ? {
+            latestAiSuggestion: {
+              id: `${ticket.id}-latest-ai-suggestion`,
+              status: ticket.latestAiSuggestionStatus,
+              createdAt: ticket.createdAt
+            }
+          }
+        : {}),
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.createdAt
+    }))
   };
 }
 
@@ -373,5 +365,22 @@ function toAiSuggestionListItem(
       : {}),
     createdAt: suggestion.createdAt,
     updatedAt: "updatedAt" in suggestion ? suggestion.updatedAt : suggestion.createdAt
+  };
+}
+
+function toCustomerListItem(customer: CustomerApiListItemDTO): CustomerListItemDTO {
+  return {
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    ...(customer.companyName ?? customer.company ? { companyName: customer.companyName ?? customer.company } : {}),
+    ticketCount: customer.ticketCount,
+    openTicketCount: customer.openTicketCount,
+    ...(typeof customer.resolvedTicketCount === "number"
+      ? { resolvedTicketCount: customer.resolvedTicketCount }
+      : {}),
+    ...(customer.latestTicketAt ? { latestTicketAt: customer.latestTicketAt } : {}),
+    createdAt: customer.createdAt,
+    updatedAt: customer.latestTicketAt ?? customer.createdAt
   };
 }
