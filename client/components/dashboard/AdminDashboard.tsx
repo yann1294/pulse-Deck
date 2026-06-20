@@ -115,11 +115,21 @@ export function AdminDashboard() {
       {isDemoWorkspace ? <DemoWorkspaceBanner /> : null}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryQuery.isLoading
-          ? Array.from({ length: 4 }).map((_, index) => (
-              <LoadingSkeleton key={index} label="Loading KPI" rows={2} />
-            ))
-          : kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
+        {summaryQuery.isLoading ? (
+          Array.from({ length: 4 }).map((_, index) => (
+            <LoadingSkeleton key={index} label="Loading KPI" rows={2} />
+          ))
+        ) : summaryQuery.isError ? (
+          <ErrorState
+            actionLabel="Retry"
+            className="sm:col-span-2 xl:col-span-4"
+            error={summaryQuery.error}
+            onAction={() => void summaryQuery.refetch()}
+            title="Could not load dashboard summary"
+          />
+        ) : (
+          kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)
+        )}
       </section>
 
       <Card className="mt-6 p-4 sm:p-5">
@@ -182,7 +192,7 @@ export function AdminDashboard() {
                 ? "Clear the active filters to return to the full queue."
                 : "New support requests will appear here once customers submit tickets."
             }
-            title="No tickets match your filters."
+            title={hasActiveFilters ? "No tickets match your filters." : "No tickets yet."}
           />
         ) : (
           <TicketResults
@@ -349,8 +359,8 @@ function TicketResults({
                   <p className="mt-1 line-clamp-1 text-xs text-zinc-400">{ticket.description}</p>
                 </td>
                 <td className="px-4 py-4">
-                  <p className="text-sm text-zinc-200">{ticket.customer?.name ?? "Unknown"}</p>
-                  <p className="mt-1 text-xs text-zinc-400">{ticket.customer?.email ?? "No email"}</p>
+                  <p className="break-words text-sm text-zinc-200">{ticket.customer?.name ?? "Unknown"}</p>
+                  <p className="mt-1 break-all text-xs text-zinc-400">{ticket.customer?.email ?? "No email"}</p>
                 </td>
                 <td className="px-4 py-4">
                   <StatusBadge status={ticket.status} />
@@ -382,15 +392,19 @@ function TicketResults({
             onClick={() => onOpenTicket(ticket.id)}
             type="button"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</h3>
-                <p className="mt-1 text-xs text-zinc-400">
-                  {ticket.customer?.name ?? "Unknown customer"} · {formatDate(ticket.createdAt)}
+                <p className="mt-1 break-words text-xs text-zinc-400">
+                  {ticket.customer?.name ?? "Unknown customer"} - {formatDate(ticket.createdAt)}
+                </p>
+                <p className="mt-1 break-all text-xs text-zinc-500">
+                  {ticket.customer?.email ?? "No email"}
                 </p>
               </div>
               <AiStatusIndicator status={getAiStatus(ticket)} />
             </div>
+            <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">{ticket.description}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <StatusBadge status={ticket.status} />
               <PriorityBadge priority={ticket.priority} />

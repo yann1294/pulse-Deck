@@ -147,7 +147,9 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
           {generateMutation.isError ? (
             <ErrorState
               className="mt-6"
+              actionLabel="Retry"
               error={generateMutation.error}
+              onAction={() => generateMutation.mutate()}
               title="AI suggestion failed"
             />
           ) : null}
@@ -155,7 +157,9 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
           {resolveMutation.isError ? (
             <ErrorState
               className="mt-6"
+              actionLabel="Retry"
               error={resolveMutation.error}
+              onAction={() => resolveMutation.mutate()}
               title="Could not update ticket"
             />
           ) : null}
@@ -507,7 +511,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">{label}</p>
-      <p className="mt-1 break-words text-zinc-200">{value}</p>
+          <p className="mt-1 break-all text-zinc-200">{value}</p>
     </div>
   );
 }

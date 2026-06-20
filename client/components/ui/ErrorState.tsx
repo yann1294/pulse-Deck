@@ -31,7 +31,7 @@ export function ErrorState({
       <h3 className="text-sm font-semibold text-rose-100">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-rose-200/80">{userMessage}</p>
       {actionLabel && onAction ? (
-        <Button className="mt-4" size="sm" variant="secondary" onClick={onAction}>
+        <Button className="mt-4 w-full sm:w-auto" size="sm" variant="secondary" onClick={onAction}>
           {actionLabel}
         </Button>
       ) : null}

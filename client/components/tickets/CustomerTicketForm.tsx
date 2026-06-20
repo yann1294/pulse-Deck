@@ -48,6 +48,10 @@ export function CustomerTicketForm() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    submitCurrentValues();
+  }
+
+  function submitCurrentValues() {
     const validationErrors = validateTicketForm(values);
     setErrors(validationErrors);
 
@@ -103,8 +107,10 @@ export function CustomerTicketForm() {
 
       {ticketMutation.isError ? (
         <ErrorState
+          actionLabel="Try again"
           className="mb-5"
           error={ticketMutation.error}
+          onAction={submitCurrentValues}
           title="Ticket submission failed"
         />
       ) : null}
