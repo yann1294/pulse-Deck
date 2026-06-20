@@ -2,46 +2,66 @@ import { Badge, ButtonLink, SectionCard } from "@/components/ui";
 
 const tickets = [
   {
-    title: "CSV export stuck in queue",
-    customer: "Mara Chen, BrightLedger",
+    title: "Monthly CSV export queued for an hour",
+    customer: "Jordan Patel, Apex Analytics",
     priority: "High",
     status: "AI ready"
   },
   {
-    title: "Webhook signatures failing",
-    customer: "Noah Park, OrbitOps",
+    title: "Possible compromised admin account",
+    customer: "Elena Rodriguez, Riverline Health",
     priority: "Urgent",
-    status: "Needs review"
+    status: "Reviewing"
   },
   {
-    title: "Question about annual invoice",
-    customer: "Amelia Stone, Atlas HR",
+    title: "Invoice total changed after upgrade",
+    customer: "Maya Chen, Northstar Commerce",
     priority: "Medium",
-    status: "Drafting"
+    status: "Draft ready"
   }
+];
+
+const pipeline = [
+  { label: "Classify", state: "done" },
+  { label: "Prioritize", state: "done" },
+  { label: "Retrieve", state: "done" },
+  { label: "Draft", state: "ready" }
 ];
 
 export function DashboardPreview() {
   return (
-    <div id="dashboard" className="min-w-0 rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-2 shadow-glow sm:rounded-[2rem] sm:p-3">
-      <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950">
-        <div className="flex flex-col gap-4 border-b border-zinc-800 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-white">Admin queue</p>
-            <p className="mt-1 text-xs text-zinc-400">Live ticket triage with AI assistance</p>
+    <div
+      id="dashboard"
+      className="min-w-0 rounded-[1.5rem] border border-white/10 bg-zinc-950/85 p-2 shadow-glow sm:rounded-[2rem] sm:p-3"
+    >
+      <div className="overflow-hidden rounded-[1.35rem] border border-zinc-800 bg-zinc-950">
+        <div className="flex flex-col gap-4 border-b border-zinc-800 bg-zinc-900/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-white">PulseDesk admin</p>
+              <Badge tone="emerald">Live demo</Badge>
+            </div>
+            <p className="mt-1 text-xs text-zinc-400">AI triage queue with RAG-backed reply review</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge tone="emerald">12 open</Badge>
-            <Badge tone="teal">5 AI ready</Badge>
-            <ButtonLink href="/dashboard" size="sm" variant="secondary">
-              Open dashboard
-            </ButtonLink>
+          <div className="grid grid-cols-3 gap-2 text-center sm:w-[18rem]">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+              <p className="text-base font-semibold text-white">12</p>
+              <p className="text-[0.7rem] uppercase tracking-[0.14em] text-zinc-500">Open</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2">
+              <p className="text-base font-semibold text-emerald-100">7</p>
+              <p className="text-[0.7rem] uppercase tracking-[0.14em] text-emerald-200/70">AI ready</p>
+            </div>
+            <div className="rounded-2xl border border-teal-400/20 bg-teal-400/10 px-3 py-2">
+              <p className="text-base font-semibold text-teal-100">4</p>
+              <p className="text-[0.7rem] uppercase tracking-[0.14em] text-teal-200/70">Jobs</p>
+            </div>
           </div>
         </div>
-        <div className="grid min-w-0 gap-3 p-2 sm:p-3 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid min-w-0 gap-3 p-2 sm:p-3 lg:grid-cols-[1.15fr_0.85fr]">
           <SectionCard
             title="Priority tickets"
-            description="Sorted by freshness and impact"
+            description="Sorted by customer impact, freshness, and AI confidence"
             action={
               <ButtonLink href="/dashboard" size="sm" variant="ghost">
                 View queue
@@ -63,9 +83,9 @@ export function DashboardPreview() {
                       {ticket.priority}
                     </Badge>
                   </div>
-                  <div className="mt-4 flex items-center justify-between text-xs text-zinc-400">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
                     <span>{ticket.status}</span>
-                    <span>2m ago</span>
+                    <span>Updated 2m ago</span>
                   </div>
                 </div>
               ))}
@@ -73,20 +93,33 @@ export function DashboardPreview() {
           </SectionCard>
           <SectionCard
             title="AI suggestion"
-            description="Grounded in uploaded knowledge"
+            description="Generated by background jobs and grounded in docs"
             action={
               <ButtonLink href="/dashboard" size="sm" variant="ghost">
                 Review drafts
               </ButtonLink>
             }
           >
+            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+              {pipeline.map((item) => (
+                <div
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-center"
+                  key={item.label}
+                >
+                  <span className="mx-auto block h-2 w-2 rounded-full bg-emerald-400" />
+                  <p className="mt-2 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-zinc-300">
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
                 Draft ready
               </p>
               <p className="mt-3 text-sm leading-6 text-zinc-100">
-                Acknowledge the delayed export, explain that large workspaces may take longer, and
-                ask the admin to retry if it exceeds the support threshold.
+                Acknowledge the queued export, explain that large workspaces may take longer, and ask
+                for the workspace name so support can retry the job if it exceeds the threshold.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Badge tone="emerald">RAG context: 4 snippets</Badge>
