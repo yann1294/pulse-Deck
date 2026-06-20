@@ -24,6 +24,7 @@ import {
   StatusBadge
 } from "@/components/ui";
 import { listTickets, type ListTicketsParams } from "@/lib/api";
+import { useTicketRealtime } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
 type FilterValue<T extends string> = T | "all";
@@ -71,13 +72,16 @@ export function AdminDashboard() {
     }),
     [category, priority, search, status]
   );
+  const realtime = useTicketRealtime();
   const ticketsQuery = useQuery({
     queryKey: ["tickets", filters],
-    queryFn: () => listTickets(filters)
+    queryFn: () => listTickets(filters),
+    refetchInterval: realtime.pollingFallbackInterval
   });
   const summaryQuery = useQuery({
     queryKey: ["tickets", "summary"],
-    queryFn: () => listTickets({ page: 1, limit: 100 })
+    queryFn: () => listTickets({ page: 1, limit: 100 }),
+    refetchInterval: realtime.pollingFallbackInterval
   });
   const tickets = ticketsQuery.data?.data ?? [];
   const summaryTickets = summaryQuery.data?.data ?? [];
@@ -94,11 +98,18 @@ export function AdminDashboard() {
   return (
     <DashboardShell activeHref="/dashboard" title="PulseDesk dashboard">
       <PageHeader
-        actions={<Badge tone="emerald">Human-approved AI replies</Badge>}
+        actions={
+          <>
+            <LiveUpdatesIndicator isLive={realtime.isLive} />
+            <Badge tone="emerald">Human-approved AI replies</Badge>
+          </>
+        }
         description="Review ticket queues, AI-generated suggestions, and customer context from one protected workspace."
         eyebrow="Admin workspace"
         title="Support operations"
       />
+
+      {realtime.notice ? <RealtimeNotice notice={realtime.notice} /> : null}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryQuery.isLoading
@@ -178,6 +189,43 @@ export function AdminDashboard() {
         )}
       </section>
     </DashboardShell>
+  );
+}
+
+function LiveUpdatesIndicator({ isLive }: { isLive: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-zinc-950 px-2.5 py-1 text-xs font-semibold leading-5 text-emerald-100">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "h-2 w-2 rounded-full",
+          isLive ? "bg-emerald-400" : "bg-amber-400"
+        )}
+      />
+      {isLive ? "Live updates enabled" : "Polling fallback active"}
+    </span>
+  );
+}
+
+function RealtimeNotice({
+  notice
+}: {
+  notice: { message: string; tone: "emerald" | "teal" | "amber" };
+}) {
+  const toneClasses = {
+    emerald: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+    teal: "border-teal-400/20 bg-teal-400/10 text-teal-100",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-100"
+  };
+
+  return (
+    <div
+      aria-live="polite"
+      className={cn("mt-6 rounded-2xl border px-4 py-3 text-sm leading-6", toneClasses[notice.tone])}
+      role="status"
+    >
+      {notice.message}
+    </div>
   );
 }
 
@@ -380,7 +428,7 @@ function AiStatusIndicator({ status }: { status: AiSuggestionStatus }) {
   const config = statusConfig[status];
 
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-zinc-200">
+    <span className="inline-flex min-w-[5.75rem] items-center justify-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-zinc-200">
       <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", config.className)} />
       {config.label}
     </span>

@@ -16,6 +16,7 @@ import {
   StatusBadge
 } from "@/components/ui";
 import { generateAiSuggestion, getTicket, updateTicketStatus } from "@/lib/api";
+import { useTicketRealtime } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
 interface TicketDetailWorkspaceProps {
@@ -45,9 +46,11 @@ interface RetrievedContext {
 export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) {
   const queryClient = useQueryClient();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const realtime = useTicketRealtime(ticketId);
   const ticketQuery = useQuery({
     queryKey: ["ticket", ticketId],
-    queryFn: () => getTicket(ticketId)
+    queryFn: () => getTicket(ticketId),
+    refetchInterval: realtime.pollingFallbackInterval
   });
   const generateMutation = useMutation({
     mutationFn: () => generateAiSuggestion(ticketId),
@@ -102,6 +105,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
           <PageHeader
             actions={
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                <LiveUpdatesIndicator isLive={realtime.isLive} />
                 <Button
                   aria-busy={generateMutation.isPending}
                   className="w-full sm:w-auto"
@@ -127,6 +131,8 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
             eyebrow="Support workspace"
             title={ticket.subject}
           />
+
+          {realtime.notice ? <RealtimeNotice notice={realtime.notice} /> : null}
 
           {actionMessage ? (
             <div
@@ -171,6 +177,43 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
         </>
       )}
     </DashboardShell>
+  );
+}
+
+function LiveUpdatesIndicator({ isLive }: { isLive: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-zinc-950 px-2.5 py-1 text-xs font-semibold leading-5 text-emerald-100">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "h-2 w-2 rounded-full",
+          isLive ? "bg-emerald-400" : "bg-amber-400"
+        )}
+      />
+      {isLive ? "Live updates enabled" : "Polling fallback active"}
+    </span>
+  );
+}
+
+function RealtimeNotice({
+  notice
+}: {
+  notice: { message: string; tone: "emerald" | "teal" | "amber" };
+}) {
+  const toneClasses = {
+    emerald: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+    teal: "border-teal-400/20 bg-teal-400/10 text-teal-100",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-100"
+  };
+
+  return (
+    <div
+      aria-live="polite"
+      className={cn("mt-6 rounded-2xl border px-4 py-3 text-sm leading-6", toneClasses[notice.tone])}
+      role="status"
+    >
+      {notice.message}
+    </div>
   );
 }
 
