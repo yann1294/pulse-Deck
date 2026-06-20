@@ -169,7 +169,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
               />
             </div>
             <AiSuggestionPanel
-              onApprove={() => setActionMessage("Approval workflow placeholder. Sending remains human-controlled.")}
+              onApprove={() => setActionMessage("Suggestion marked reviewed. Customer sending remains disabled in this MVP.")}
               onEdit={() => setActionMessage("Edit suggestion placeholder. Rich editor comes next.")}
               suggestion={latestSuggestion}
             />
@@ -297,28 +297,75 @@ function AiSuggestionPanel({
   const snippets = getRetrievedSnippets(suggestion, context);
   const summary = suggestion?.summary ?? context?.reply?.summary;
   const limitations = getLimitations(suggestion, context, snippets);
+  const safetyTone = getSuggestionSafetyTone(suggestion, limitations.needsManualVerification);
+  const confidence = getConfidenceDisplay(suggestion?.confidenceScore);
+  const reviewRequired = context?.reply?.humanReviewRequired !== false;
 
   return (
     <aside className="space-y-4">
-      <Card className="border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 to-zinc-950 p-5 shadow-glow">
+      <Card
+        className={cn(
+          "p-5 shadow-glow",
+          safetyTone === "rose"
+            ? "border-rose-400/25 bg-gradient-to-br from-rose-400/10 to-zinc-950"
+            : safetyTone === "amber"
+              ? "border-amber-400/25 bg-gradient-to-br from-amber-400/10 to-zinc-950"
+              : "border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 to-zinc-950"
+        )}
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <Badge tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
-              {suggestion ? formatAiStatus(suggestion.status) : "Needs review"}
-            </Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
+                {suggestion ? formatAiStatus(suggestion.status) : "Needs review"}
+              </Badge>
+              {limitations.needsManualVerification ? (
+                <Badge tone={suggestion?.status === "failed" ? "rose" : "amber"}>
+                  Needs manual verification
+                </Badge>
+              ) : (
+                <Badge tone="teal">Grounded draft</Badge>
+              )}
+            </div>
             <h2 className="mt-4 text-xl font-semibold text-white">AI assistant</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              AI-generated draft. Review before sending.
+              AI-generated draft. Human review is required before any customer response.
             </p>
           </div>
-          {suggestion?.confidenceScore !== undefined ? (
-            <div className="self-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-left sm:text-right">
-              <p className="text-xs text-zinc-400">Confidence</p>
-              <p className="text-lg font-semibold text-emerald-200">
-                {Math.round(suggestion.confidenceScore * 100)}%
+          <Badge tone={reviewRequired ? "amber" : "rose"}>Human review required</Badge>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+          <SafetyMetric
+            helper={confidence.helper}
+            label="Confidence score"
+            tone={confidence.tone}
+            value={confidence.value}
+          />
+          <SafetyMetric
+            helper={snippets.length > 0 ? "Retrieved knowledge available" : "No grounded context found"}
+            label="Knowledge context"
+            tone={snippets.length > 0 ? "teal" : "amber"}
+            value={snippets.length > 0 ? `${snippets.length} snippets` : "Manual check"}
+          />
+          <SafetyMetric
+            helper="Automatic customer sending is disabled"
+            label="Review gate"
+            tone="amber"
+            value="Required"
+          />
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-amber-100">Human review required</h3>
+              <p className="mt-1 text-sm leading-6 text-amber-100/85">
+                PulseDesk can draft a response, but this MVP does not send AI replies to customers.
               </p>
             </div>
-          ) : null}
+            <Badge tone="amber">Send disabled</Badge>
+          </div>
         </div>
 
         <div className="mt-5 space-y-4">
@@ -335,18 +382,33 @@ function AiSuggestionPanel({
           </PanelBlock>
 
           <PanelBlock title="Limitations">
-            <p className={cn("text-sm leading-6", limitations.needsManualVerification ? "text-amber-200" : "text-zinc-300")}>
-              {limitations.text}
-            </p>
+            <ul className="space-y-2">
+              {limitations.notes.map((note) => (
+                <li
+                  className={cn(
+                    "rounded-xl border px-3 py-2 text-sm leading-6",
+                    limitations.needsManualVerification
+                      ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
+                      : "border-zinc-800 bg-zinc-900/60 text-zinc-300"
+                  )}
+                  key={note}
+                >
+                  {note}
+                </li>
+              ))}
+            </ul>
           </PanelBlock>
         </div>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
           <Button disabled={!suggestion || suggestion.status === "failed"} onClick={onApprove} type="button">
-            Approve suggestion
+            Mark reviewed
           </Button>
           <Button disabled={!suggestion} onClick={onEdit} type="button" variant="secondary">
-            Edit suggestion
+            Edit draft
+          </Button>
+          <Button className="sm:col-span-2 xl:col-span-1" disabled type="button" variant="secondary">
+            Send to customer unavailable
           </Button>
         </div>
       </Card>
@@ -389,6 +451,34 @@ function AiSuggestionPanel({
         </div>
       </Card>
     </aside>
+  );
+}
+
+function SafetyMetric({
+  label,
+  value,
+  helper,
+  tone
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  tone: "emerald" | "teal" | "amber" | "rose" | "neutral";
+}) {
+  const toneClasses = {
+    emerald: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+    teal: "border-teal-400/20 bg-teal-400/10 text-teal-100",
+    amber: "border-amber-400/20 bg-amber-400/10 text-amber-100",
+    rose: "border-rose-400/20 bg-rose-400/10 text-rose-100",
+    neutral: "border-zinc-800 bg-zinc-950/80 text-zinc-200"
+  };
+
+  return (
+    <div className={cn("rounded-2xl border p-3", toneClasses[tone])}>
+      <p className="text-xs font-medium uppercase tracking-[0.16em] opacity-75">{label}</p>
+      <p className="mt-2 text-lg font-semibold">{value}</p>
+      <p className="mt-1 text-xs leading-5 opacity-75">{helper}</p>
+    </div>
   );
 }
 
@@ -467,38 +557,109 @@ function getLimitations(
   suggestion: AiSuggestionDTO | undefined,
   context: RetrievedContext | undefined,
   snippets: RetrievedSnippet[]
-): { text: string; needsManualVerification: boolean } {
+): { notes: string[]; needsManualVerification: boolean } {
+  const baseNotes = ["AI output can be incomplete or incorrect and must be checked by a support admin."];
+
   if (!suggestion) {
     return {
-      text: "No AI draft has been generated yet. Needs manual verification.",
+      notes: [
+        "No AI draft has been generated yet.",
+        "Review the ticket manually until classification, priority, and reply context are available."
+      ],
       needsManualVerification: true
     };
   }
 
   if (suggestion.status === "failed") {
     return {
-      text: suggestion.errorMessage ?? context?.failure ?? "AI generation failed. Needs manual verification.",
+      notes: [
+        suggestion.errorMessage ?? context?.failure ?? "AI generation failed.",
+        "Use manual triage or retry generation after checking provider and knowledge-base status."
+      ],
       needsManualVerification: true
     };
   }
 
   if (context?.reply?.contextSufficient === false) {
     return {
-      text: context.reply.insufficientContextReason ?? "Available context is insufficient. Needs manual verification.",
+      notes: [
+        context.reply.insufficientContextReason ?? "Available context is insufficient.",
+        "Do not rely on this draft without verifying missing details against source documentation or the customer."
+      ],
       needsManualVerification: true
     };
   }
 
   if (snippets.length === 0) {
     return {
-      text: "Needs manual verification.",
+      notes: [
+        "No knowledge-base context was retrieved for this suggestion.",
+        "Verify policy, product behavior, and next steps manually before using the draft."
+      ],
       needsManualVerification: true
     };
   }
 
   return {
-    text: context?.reply?.internalNotes ?? "Grounded in retrieved knowledge snippets. Human review is still required.",
+    notes: [
+      context?.reply?.internalNotes ?? "Grounded in retrieved knowledge snippets.",
+      ...baseNotes,
+      "Confirm citations and customer-specific facts before responding."
+    ],
     needsManualVerification: false
+  };
+}
+
+function getSuggestionSafetyTone(
+  suggestion: AiSuggestionDTO | undefined,
+  needsManualVerification: boolean
+): "emerald" | "amber" | "rose" {
+  if (suggestion?.status === "failed") {
+    return "rose";
+  }
+
+  if (!suggestion || needsManualVerification) {
+    return "amber";
+  }
+
+  return "emerald";
+}
+
+function getConfidenceDisplay(score: number | undefined): {
+  value: string;
+  helper: string;
+  tone: "emerald" | "teal" | "amber" | "rose" | "neutral";
+} {
+  if (score === undefined) {
+    return {
+      value: "Not available",
+      helper: "Manual review required",
+      tone: "neutral"
+    };
+  }
+
+  const percent = Math.round(score * 100);
+
+  if (score < 0.5) {
+    return {
+      value: `${percent}%`,
+      helper: "Low confidence",
+      tone: "rose"
+    };
+  }
+
+  if (score < 0.75) {
+    return {
+      value: `${percent}%`,
+      helper: "Review carefully",
+      tone: "amber"
+    };
+  }
+
+  return {
+    value: `${percent}%`,
+    helper: "Still requires review",
+    tone: "emerald"
   };
 }
 
