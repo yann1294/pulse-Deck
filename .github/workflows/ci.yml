@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  client:
+    name: Client
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dummy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @pulsedesk/shared build
+
+      - name: Lint client
+        run: pnpm --filter @pulsedesk/client lint
+
+      - name: Build client
+        run: pnpm --filter @pulsedesk/client build
+
+  server:
+    name: Server
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: pulsedesk
+          POSTGRES_USER: pulsedesk
+          POSTGRES_PASSWORD: pulsedesk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pulsedesk -d pulsedesk"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://pulsedesk:pulsedesk@localhost:5432/pulsedesk?schema=public
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      PORT: 3001
+      CLIENT_URL: http://localhost:3000
+      CLERK_SECRET_KEY: sk_test_dummy
+      CLERK_PUBLISHABLE_KEY: pk_test_dummy
+      CLERK_JWT_KEY: ""
+      CLERK_AUTHORIZED_PARTY: http://localhost:3000
+      GEMINI_API_KEY: dummy
+      GEMINI_GENERATION_MODEL: gemini-3.5-flash
+      GEMINI_EMBEDDING_MODEL: gemini-embedding-2
+      EMBEDDING_DIM: 768
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @pulsedesk/server prisma:generate
+
+      - name: Build shared package
+        run: pnpm --filter @pulsedesk/shared build
+
+      - name: Lint server
+        run: pnpm --filter @pulsedesk/server lint
+
+      - name: Test server
+        run: pnpm --filter @pulsedesk/server run --if-present test
+
+      - name: Build server
+        run: pnpm --filter @pulsedesk/server build
