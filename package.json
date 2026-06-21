@@ -10,6 +10,8 @@
     "dev:server": "pnpm --filter @pulsedesk/server dev",
     "lint": "pnpm -r lint",
     "build": "pnpm -r build",
+    "test:e2e": "pnpm --filter @pulsedesk/client test:e2e",
+    "test:e2e:ui": "pnpm --filter @pulsedesk/client test:e2e:ui",
     "db:migrate": "pnpm --filter @pulsedesk/server db:migrate",
     "db:generate": "pnpm --filter @pulsedesk/server db:generate",
     "db:studio": "pnpm --filter @pulsedesk/server db:studio",
