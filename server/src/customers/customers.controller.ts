@@ -1,7 +1,12 @@
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import type { PaginatedResponse } from "@pulsedesk/shared";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
-import { CustomersService, type CustomerDetailDTO, type CustomerListItemDTO } from "./customers.service";
+import {
+  CustomersService,
+  type CustomerDetailDTO,
+  type CustomerListItemDTO,
+  type CustomerTimelineEventDTO
+} from "./customers.service";
 import { ListCustomersQueryDto } from "./dto/list-customers-query.dto";
 
 @Controller("customers")
@@ -12,6 +17,12 @@ export class CustomersController {
   @UseGuards(ClerkAuthGuard)
   listCustomers(@Query() query: ListCustomersQueryDto): Promise<PaginatedResponse<CustomerListItemDTO>> {
     return this.customersService.listCustomers(query);
+  }
+
+  @Get(":id/timeline")
+  @UseGuards(ClerkAuthGuard)
+  getCustomerTimeline(@Param("id") id: string): Promise<CustomerTimelineEventDTO[]> {
+    return this.customersService.getCustomerTimeline(id);
   }
 
   @Get(":id")

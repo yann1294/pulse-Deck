@@ -43,6 +43,26 @@ export interface CustomerDetailDTO {
   recentTickets: CustomerTicketHistoryItemDTO[];
 }
 
+export type CustomerTimelineEventType =
+  | "CUSTOMER_CREATED"
+  | "TICKET_CREATED"
+  | "TICKET_UPDATED"
+  | "AI_SUGGESTION_GENERATED"
+  | "AI_REPLY_APPROVED"
+  | "MESSAGE_ADDED"
+  | "INTERNAL_NOTE_ADDED"
+  | "TICKET_RESOLVED";
+
+export interface CustomerTimelineEventDTO {
+  id: string;
+  type: CustomerTimelineEventType;
+  title: string;
+  description: string;
+  timestamp: string;
+  ticketId?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
 type CustomerWithTicketCounts = Prisma.CustomerGetPayload<{
   include: {
     _count: {
@@ -71,6 +91,17 @@ type CustomerWithRecentTickets = Prisma.CustomerGetPayload<{
           orderBy: { createdAt: "desc" };
           take: 1;
         };
+      };
+    };
+  };
+}>;
+
+type CustomerWithTimelineRelations = Prisma.CustomerGetPayload<{
+  include: {
+    tickets: {
+      include: {
+        aiSuggestions: true;
+        messages: true;
       };
     };
   };
@@ -180,6 +211,26 @@ export class CustomersService {
     };
   }
 
+  async getCustomerTimeline(id: string): Promise<CustomerTimelineEventDTO[]> {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        tickets: {
+          include: {
+            aiSuggestions: true,
+            messages: true
+          }
+        }
+      }
+    });
+
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    return this.buildCustomerTimeline(customer);
+  }
+
   private buildCustomerWhere(query: ListCustomersQueryDto): Prisma.CustomerWhereInput {
     if (!query.search?.trim()) {
       return {};
@@ -210,6 +261,124 @@ export class CustomersService {
       openTicketCount,
       ...(latestTicketAt ? { latestTicketAt: latestTicketAt.toISOString() } : {})
     };
+  }
+
+  private buildCustomerTimeline(customer: CustomerWithTimelineRelations): CustomerTimelineEventDTO[] {
+    const events: CustomerTimelineEventDTO[] = [
+      {
+        id: `customer-created-${customer.id}`,
+        type: "CUSTOMER_CREATED",
+        title: "Customer created",
+        description: `${customer.name} was added to PulseDesk.`,
+        timestamp: customer.createdAt.toISOString(),
+        metadata: {
+          customerId: customer.id,
+          email: customer.email,
+          companyName: customer.companyName
+        }
+      }
+    ];
+
+    for (const ticket of customer.tickets) {
+      events.push({
+        id: `ticket-created-${ticket.id}`,
+        type: "TICKET_CREATED",
+        title: "Ticket created",
+        description: ticket.subject,
+        timestamp: ticket.createdAt.toISOString(),
+        ticketId: ticket.id,
+        metadata: {
+          status: toApiStatus(ticket.status),
+          priority: toApiPriority(ticket.priority),
+          category: toApiCategory(ticket.category)
+        }
+      });
+
+      if (ticket.updatedAt.getTime() !== ticket.createdAt.getTime()) {
+        events.push({
+          id: `ticket-updated-${ticket.id}-${ticket.updatedAt.getTime()}`,
+          type: "TICKET_UPDATED",
+          title: "Ticket updated",
+          description: ticket.subject,
+          timestamp: ticket.updatedAt.toISOString(),
+          ticketId: ticket.id,
+          metadata: {
+            status: toApiStatus(ticket.status),
+            priority: toApiPriority(ticket.priority),
+            category: toApiCategory(ticket.category)
+          }
+        });
+      }
+
+      if (ticket.status === TicketStatus.RESOLVED) {
+        events.push({
+          id: `ticket-resolved-${ticket.id}`,
+          type: "TICKET_RESOLVED",
+          title: "Ticket resolved",
+          description: ticket.subject,
+          timestamp: (ticket.resolvedAt ?? ticket.updatedAt).toISOString(),
+          ticketId: ticket.id,
+          metadata: {
+            status: toApiStatus(ticket.status),
+            priority: toApiPriority(ticket.priority)
+          }
+        });
+      }
+
+      for (const suggestion of ticket.aiSuggestions) {
+        if (suggestion.suggestedReply || suggestion.originalSuggestedReply) {
+          events.push({
+            id: `ai-suggestion-generated-${suggestion.id}`,
+            type: "AI_SUGGESTION_GENERATED",
+            title: "AI suggestion generated",
+            description: `AI generated a draft reply for "${ticket.subject}".`,
+            timestamp: suggestion.createdAt.toISOString(),
+            ticketId: ticket.id,
+            metadata: {
+              suggestionId: suggestion.id,
+              status: toApiAiSuggestionStatus(suggestion.status),
+              confidenceScore: suggestion.confidenceScore
+            }
+          });
+        }
+
+        if (suggestion.approvedAt && suggestion.finalApprovedReply) {
+          events.push({
+            id: `ai-reply-approved-${suggestion.id}`,
+            type: "AI_REPLY_APPROVED",
+            title: suggestion.editedBeforeApproval ? "Edited AI reply approved" : "AI draft approved",
+            description: `A human-approved reply was added for "${ticket.subject}".`,
+            timestamp: suggestion.approvedAt.toISOString(),
+            ticketId: ticket.id,
+            metadata: {
+              suggestionId: suggestion.id,
+              status: toApiAiSuggestionStatus(suggestion.status),
+              editedBeforeApproval: suggestion.editedBeforeApproval,
+              approvedByUserId: suggestion.approvedByUserId
+            }
+          });
+        }
+      }
+
+      for (const message of ticket.messages) {
+        events.push({
+          id: `${message.isInternal ? "internal-note-added" : "message-added"}-${message.id}`,
+          type: message.isInternal ? "INTERNAL_NOTE_ADDED" : "MESSAGE_ADDED",
+          title: message.isInternal ? "Internal note added" : "Message added",
+          description: getMessageTimelineDescription(message.body),
+          timestamp: message.createdAt.toISOString(),
+          ticketId: ticket.id,
+          metadata: {
+            messageId: message.id,
+            authorType: toApiMessageAuthorType(message.authorType),
+            authorName: message.authorName,
+            isInternal: message.isInternal
+          }
+        });
+      }
+    }
+
+    return events.sort((first, second) => Date.parse(second.timestamp) - Date.parse(first.timestamp));
   }
 }
 
@@ -258,4 +427,25 @@ function toApiAiSuggestionStatus(status: Prisma.TicketAiSuggestionGetPayload<{}>
   };
 
   return statusMap[status];
+}
+
+function toApiMessageAuthorType(authorType: Prisma.TicketMessageGetPayload<{}>["authorType"]): string {
+  const authorTypeMap: Record<Prisma.TicketMessageGetPayload<{}>["authorType"], string> = {
+    CUSTOMER: "customer",
+    ADMIN: "admin",
+    AI: "ai",
+    SYSTEM: "system"
+  };
+
+  return authorTypeMap[authorType];
+}
+
+function getMessageTimelineDescription(body: string): string {
+  const normalizedBody = body.trim().replace(/\s+/g, " ");
+
+  if (normalizedBody.length <= 140) {
+    return normalizedBody;
+  }
+
+  return `${normalizedBody.slice(0, 137)}...`;
 }
