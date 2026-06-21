@@ -147,6 +147,7 @@ interface CustomerApiDetailDTO {
     priority: TicketPriority;
     category: TicketCategory;
     createdAt: string;
+    sla?: TicketDTO["sla"];
     latestAiSuggestionStatus?: AiSuggestionStatus;
   }>;
 }
@@ -311,6 +312,7 @@ export async function getCustomer(customerId: string): Promise<CustomerDetailDTO
       priority: ticket.priority,
       category: ticket.category,
       customerId,
+      ...(ticket.sla ? { sla: ticket.sla } : {}),
       ...(ticket.latestAiSuggestionStatus
         ? {
             latestAiSuggestion: {

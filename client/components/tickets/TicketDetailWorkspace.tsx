@@ -13,6 +13,7 @@ import {
   ErrorState,
   LoadingSkeleton,
   PriorityBadge,
+  SlaBadge,
   StatusBadge,
   Textarea
 } from "@/components/ui";
@@ -353,6 +354,7 @@ function TicketContextPanel({
           <StatusBadge status={ticket.status} />
           <PriorityBadge priority={ticket.priority} />
           <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+          <SlaBadge sla={ticket.sla} />
         </div>
       </div>
       <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
@@ -363,6 +365,12 @@ function TicketContextPanel({
           <InfoRow label="Customer" value={customer.name} />
           <InfoRow label="Email" value={customer.email} />
           <InfoRow label="Created" value={formatDate(ticket.createdAt)} />
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">SLA</p>
+            <div className="mt-2">
+              <SlaBadge showDueAt sla={ticket.sla} />
+            </div>
+          </div>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-zinc-200">Previous tickets</h3>

@@ -14,6 +14,7 @@ import {
   Input,
   LoadingSkeleton,
   PriorityBadge,
+  SlaBadge,
   StatusBadge
 } from "@/components/ui";
 import {
@@ -255,6 +256,7 @@ export function CustomerDetailWorkspace({ customerId }: { customerId: string }) 
                             <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
                               <StatusBadge status={ticket.status} />
                               <PriorityBadge priority={ticket.priority} />
+                              <SlaBadge sla={ticket.sla} />
                             </div>
                           </div>
                           {ticket.description ? (

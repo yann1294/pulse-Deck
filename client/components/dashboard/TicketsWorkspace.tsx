@@ -21,6 +21,7 @@ import {
   LoadingSkeleton,
   PriorityBadge,
   Select,
+  SlaBadge,
   StatusBadge
 } from "@/components/ui";
 import { listTickets, type ListTicketsParams } from "@/lib/api";
@@ -230,6 +231,7 @@ function TicketResults({
               <th className="w-[12%] px-4 py-3 font-semibold" scope="col">Status</th>
               <th className="w-[12%] px-4 py-3 font-semibold" scope="col">Priority</th>
               <th className="w-[12%] px-4 py-3 font-semibold" scope="col">Category</th>
+              <th className="w-[12%] px-4 py-3 font-semibold" scope="col">SLA</th>
               <th className="w-[10%] px-4 py-3 font-semibold" scope="col">AI</th>
               <th className="w-[6%] px-4 py-3 font-semibold" scope="col">Created</th>
             </tr>
@@ -266,6 +268,9 @@ function TicketResults({
                 </td>
                 <td className="px-4 py-4 align-top">
                   <Badge className="max-w-full truncate" tone="neutral">{formatCategory(ticket.category)}</Badge>
+                </td>
+                <td className="px-4 py-4 align-top">
+                  <SlaBadge sla={ticket.sla} />
                 </td>
                 <td className="px-4 py-4 align-top">
                   <AiStatusIndicator status={getAiStatus(ticket)} />
@@ -305,6 +310,7 @@ function TicketResults({
               <StatusBadge status={ticket.status} />
               <PriorityBadge priority={ticket.priority} />
               <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+              <SlaBadge sla={ticket.sla} />
             </div>
           </button>
         ))}

@@ -21,6 +21,7 @@ import {
   LoadingSkeleton,
   PriorityBadge,
   Select,
+  SlaBadge,
   StatusBadge
 } from "@/components/ui";
 import { listTickets, type ListTicketsParams } from "@/lib/api";
@@ -343,6 +344,7 @@ function TicketResults({
               <th className="px-4 py-3 font-semibold" scope="col">Status</th>
               <th className="px-4 py-3 font-semibold" scope="col">Priority</th>
               <th className="px-4 py-3 font-semibold" scope="col">Category</th>
+              <th className="px-4 py-3 font-semibold" scope="col">SLA</th>
               <th className="px-4 py-3 font-semibold" scope="col">AI status</th>
               <th className="px-4 py-3 font-semibold" scope="col">Created</th>
             </tr>
@@ -379,6 +381,9 @@ function TicketResults({
                 </td>
                 <td className="px-4 py-4">
                   <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+                </td>
+                <td className="px-4 py-4">
+                  <SlaBadge sla={ticket.sla} />
                 </td>
                 <td className="px-4 py-4">
                   <AiStatusIndicator status={getAiStatus(ticket)} />
@@ -418,6 +423,7 @@ function TicketResults({
               <StatusBadge status={ticket.status} />
               <PriorityBadge priority={ticket.priority} />
               <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+              <SlaBadge sla={ticket.sla} />
             </div>
           </button>
         ))}
@@ -497,15 +503,15 @@ function getDashboardKpis(tickets: TicketDTO[]): KpiCardProps[] {
       tone: "rose"
     },
     {
-      label: "AI suggestions ready",
-      value: tickets.filter((ticket) => getAiStatus(ticket) === "generated").length,
-      helper: "Drafts ready for human approval",
-      tone: "teal"
+      label: "Overdue tickets",
+      value: tickets.filter((ticket) => ticket.sla?.status === "OVERDUE").length,
+      helper: "Past first response SLA",
+      tone: "rose"
     },
     {
-      label: "Resolved tickets",
-      value: tickets.filter((ticket) => ticket.status === "resolved").length,
-      helper: "Closed support requests",
+      label: "Due soon tickets",
+      value: tickets.filter((ticket) => ticket.sla?.status === "DUE_SOON").length,
+      helper: "Needs response before SLA breach",
       tone: "amber"
     }
   ];
