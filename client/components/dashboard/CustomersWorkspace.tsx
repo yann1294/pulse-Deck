@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DashboardShell, PageHeader } from "@/components/layout";
 import {
@@ -15,8 +16,16 @@ import {
   PriorityBadge,
   StatusBadge
 } from "@/components/ui";
-import { getCustomer, listCustomers, type CustomerListItemDTO } from "@/lib/api";
+import {
+  getCustomer,
+  getCustomerTimeline,
+  listCustomers,
+  type CustomerListItemDTO,
+  type CustomerTimelineEventDTO,
+  type CustomerTimelineEventType
+} from "@/lib/api";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 export function CustomersWorkspace() {
   const router = useRouter();
@@ -109,6 +118,11 @@ export function CustomerDetailWorkspace({ customerId }: { customerId: string }) 
     queryKey: ["customer", customerId],
     queryFn: () => getCustomer(customerId)
   });
+  const timelineQuery = useQuery({
+    queryKey: ["customer", customerId, "timeline"],
+    queryFn: () => getCustomerTimeline(customerId),
+    enabled: Boolean(customerQuery.data)
+  });
   const customer = customerQuery.data;
 
   return (
@@ -194,62 +208,165 @@ export function CustomerDetailWorkspace({ customerId }: { customerId: string }) 
             </div>
 
             <section>
-              <Card className="p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="text-base font-semibold text-white">Recent ticket history</h2>
-                    <p className="mt-1 text-sm leading-6 text-zinc-400">
-                      Open any ticket to review the full conversation, AI suggestion, and customer context.
-                    </p>
-                  </div>
-                  <Badge tone={(customer.openTicketCount ?? 0) > 0 ? "amber" : "emerald"}>
-                    {customer.openTicketCount ?? 0} open
-                  </Badge>
-                </div>
+              <div className="space-y-6">
+                <CustomerTimelinePanel
+                  events={timelineQuery.data ?? []}
+                  isError={timelineQuery.isError}
+                  isLoading={timelineQuery.isLoading || timelineQuery.isPending}
+                  onRetry={() => void timelineQuery.refetch()}
+                />
 
-                {customer.tickets.length === 0 ? (
-                  <div className="mt-5">
-                    <EmptyState
-                      description="This customer does not have ticket history yet."
-                      title="No ticket history"
-                    />
+                <Card className="p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h2 className="text-base font-semibold text-white">Recent ticket history</h2>
+                      <p className="mt-1 text-sm leading-6 text-zinc-400">
+                        Open any ticket to review the full conversation, AI suggestion, and customer context.
+                      </p>
+                    </div>
+                    <Badge tone={(customer.openTicketCount ?? 0) > 0 ? "amber" : "emerald"}>
+                      {customer.openTicketCount ?? 0} open
+                    </Badge>
                   </div>
-                ) : (
-                  <div className="mt-5 space-y-3">
-                    {customer.tickets.map((ticket) => (
-                      <button
-                        className="focus-ring w-full rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900/80"
-                        key={ticket.id}
-                        onClick={() => router.push(routes.ticketDetail(ticket.id))}
-                        type="button"
-                      >
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="min-w-0">
-                            <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">
-                              {ticket.subject}
-                            </h3>
-                            <p className="mt-1 text-xs text-zinc-400">{formatDate(ticket.createdAt)}</p>
+
+                  {customer.tickets.length === 0 ? (
+                    <div className="mt-5">
+                      <EmptyState
+                        description="This customer does not have ticket history yet."
+                        title="No ticket history"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-3">
+                      {customer.tickets.map((ticket) => (
+                        <button
+                          className="focus-ring w-full rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left transition hover:border-zinc-700 hover:bg-zinc-900/80"
+                          key={ticket.id}
+                          onClick={() => router.push(routes.ticketDetail(ticket.id))}
+                          type="button"
+                        >
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                              <h3 className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">
+                                {ticket.subject}
+                              </h3>
+                              <p className="mt-1 text-xs text-zinc-400">{formatDate(ticket.createdAt)}</p>
+                            </div>
+                            <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+                              <StatusBadge status={ticket.status} />
+                              <PriorityBadge priority={ticket.priority} />
+                            </div>
                           </div>
-                          <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
-                            <StatusBadge status={ticket.status} />
-                            <PriorityBadge priority={ticket.priority} />
-                          </div>
-                        </div>
-                        {ticket.description ? (
-                          <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">
-                            {ticket.description}
-                          </p>
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Card>
+                          {ticket.description ? (
+                            <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">
+                              {ticket.description}
+                            </p>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
             </section>
           </div>
         </>
       )}
     </DashboardShell>
+  );
+}
+
+function CustomerTimelinePanel({
+  events,
+  isError,
+  isLoading,
+  onRetry
+}: {
+  events: CustomerTimelineEventDTO[];
+  isError: boolean;
+  isLoading: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-white">Activity timeline</h2>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">
+            Customer, ticket, AI, and conversation activity sorted newest first.
+          </p>
+        </div>
+        <Badge tone="teal">{events.length} events</Badge>
+      </div>
+
+      <div className="mt-5">
+        {isLoading ? (
+          <LoadingSkeleton label="Loading customer activity" rows={5} />
+        ) : isError ? (
+          <ErrorState
+            actionLabel="Retry"
+            onAction={onRetry}
+            title="Could not load activity"
+            message="Customer activity could not be loaded. Please retry in a moment."
+          />
+        ) : events.length === 0 ? (
+          <EmptyState
+            description="Timeline activity will appear after this customer submits tickets or receives support updates."
+            title="No customer activity yet"
+          />
+        ) : (
+          <ol className="relative space-y-4 before:absolute before:left-4 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-zinc-800">
+            {events.map((event) => (
+              <CustomerTimelineItem event={event} key={event.id} />
+            ))}
+          </ol>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function CustomerTimelineItem({ event }: { event: CustomerTimelineEventDTO }) {
+  const tone = getTimelineTone(event);
+  const toneClasses = {
+    emerald: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
+    teal: "border-teal-400/30 bg-teal-400/10 text-teal-100",
+    amber: "border-amber-400/30 bg-amber-400/10 text-amber-100",
+    rose: "border-rose-400/30 bg-rose-400/10 text-rose-100",
+    neutral: "border-zinc-700 bg-zinc-900 text-zinc-200"
+  };
+
+  return (
+    <li className="relative pl-10">
+      <div
+        aria-hidden="true"
+        className={cn(
+          "absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
+          toneClasses[tone]
+        )}
+      >
+        {getTimelineMarker(event.type)}
+      </div>
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="break-words text-sm font-semibold text-zinc-100">{event.title}</h3>
+            <p className="mt-1 break-words text-sm leading-6 text-zinc-400">{event.description}</p>
+          </div>
+          <time className="shrink-0 text-xs text-zinc-500" dateTime={event.timestamp}>
+            {formatDate(event.timestamp)}
+          </time>
+        </div>
+        {event.ticketId ? (
+          <Link
+            className="focus-ring mt-3 inline-flex w-fit max-w-full rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-emerald-400/40 hover:text-emerald-100"
+            href={routes.ticketDetail(event.ticketId)}
+          >
+            Open ticket
+          </Link>
+        ) : null}
+      </div>
+    </li>
   );
 }
 
@@ -462,6 +579,41 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <p className="mt-1 break-words text-zinc-200">{value}</p>
     </div>
   );
+}
+
+function getTimelineTone(event: CustomerTimelineEventDTO): "emerald" | "teal" | "amber" | "rose" | "neutral" {
+  if (event.type === "AI_REPLY_APPROVED" || event.type === "TICKET_RESOLVED") {
+    return "emerald";
+  }
+
+  if (event.type === "INTERNAL_NOTE_ADDED" || event.type === "AI_SUGGESTION_GENERATED") {
+    return "amber";
+  }
+
+  if (event.metadata?.priority === "urgent") {
+    return "rose";
+  }
+
+  if (event.type === "MESSAGE_ADDED" || event.type === "TICKET_CREATED") {
+    return "teal";
+  }
+
+  return "neutral";
+}
+
+function getTimelineMarker(type: CustomerTimelineEventType): string {
+  const markers: Record<CustomerTimelineEventType, string> = {
+    CUSTOMER_CREATED: "C",
+    TICKET_CREATED: "T",
+    TICKET_UPDATED: "U",
+    AI_SUGGESTION_GENERATED: "AI",
+    AI_REPLY_APPROVED: "OK",
+    MESSAGE_ADDED: "M",
+    INTERNAL_NOTE_ADDED: "N",
+    TICKET_RESOLVED: "R"
+  };
+
+  return markers[type];
 }
 
 function formatDate(value: string): string {

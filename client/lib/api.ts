@@ -100,6 +100,26 @@ export interface CustomerDetailDTO extends CustomerListItemDTO {
   tickets: TicketDTO[];
 }
 
+export type CustomerTimelineEventType =
+  | "CUSTOMER_CREATED"
+  | "TICKET_CREATED"
+  | "TICKET_UPDATED"
+  | "AI_SUGGESTION_GENERATED"
+  | "AI_REPLY_APPROVED"
+  | "MESSAGE_ADDED"
+  | "INTERNAL_NOTE_ADDED"
+  | "TICKET_RESOLVED";
+
+export interface CustomerTimelineEventDTO {
+  id: string;
+  type: CustomerTimelineEventType;
+  title: string;
+  description: string;
+  timestamp: string;
+  ticketId?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
 interface CustomerApiListItemDTO {
   id: string;
   name: string;
@@ -304,6 +324,16 @@ export async function getCustomer(customerId: string): Promise<CustomerDetailDTO
       updatedAt: ticket.createdAt
     }))
   };
+}
+
+export async function getCustomerTimeline(customerId: string): Promise<CustomerTimelineEventDTO[]> {
+  return requestWithMessage<CustomerTimelineEventDTO[]>(
+    {
+      method: "GET",
+      url: `/customers/${encodeURIComponent(customerId)}/timeline`
+    },
+    "Customer activity timeline could not be loaded. Please retry in a moment."
+  );
 }
 
 export async function getTicket(ticketId: string): Promise<AdminTicketDetailDTO> {
