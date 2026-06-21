@@ -239,6 +239,26 @@ The demo seed is idempotent and can be re-run safely.
 
 AI output is always treated as a suggestion.
 
+## RAG Evaluation
+
+PulseDesk includes a lightweight retrieval evaluation dataset in `server/evals/rag-eval-cases.json`. It checks whether pgvector retrieval returns the expected knowledge-base document for representative support questions.
+
+Run it after migrations and seed data:
+
+```sh
+pnpm demo:seed
+pnpm eval:rag
+```
+
+The script reports:
+
+- Top-1 retrieval accuracy: the expected document was the first retrieved result.
+- Top-3 retrieval accuracy: the expected document appeared anywhere in the first three retrieved results.
+
+Retrieval evaluation matters because RAG answer quality depends on getting the right context before the model drafts a response. This eval is intentionally simple: it measures document retrieval only, not whether the final AI answer is faithful, complete, safe, or well-written.
+
+Future evaluation work should add answer faithfulness checks, hallucination scoring, a human-reviewed support dataset, and prompt-injection test cases for uploaded knowledge-base content.
+
 ## Queue Workflow
 
 Ticket creation enqueues three BullMQ jobs:

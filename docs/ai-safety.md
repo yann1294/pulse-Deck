@@ -34,6 +34,33 @@ RAG improves grounding, but it does not eliminate hallucination. Retrieval can f
 
 The MVP stores retrieved context with AI suggestions so reviewers can see what informed a draft. In production, citations should be shown more prominently, snippets should be bounded by source permissions, and replies should be blocked or escalated when retrieval confidence is low.
 
+## RAG Evaluation
+
+PulseDesk includes a small retrieval evaluation dataset at `server/evals/rag-eval-cases.json` and a script for checking whether the expected knowledge-base document is retrieved for representative support questions.
+
+Run the evaluation after applying migrations and seeding data:
+
+```sh
+pnpm demo:seed
+pnpm eval:rag
+```
+
+The script reports:
+
+- Top-1 retrieval accuracy: the expected document is the first retrieved result.
+- Top-3 retrieval accuracy: the expected document appears anywhere in the first three retrieved results.
+
+This matters because RAG safety starts before generation. If retrieval misses the right policy, troubleshooting guide, or security note, the model may draft a fluent answer from weak or irrelevant context. Tracking retrieval quality helps identify gaps in chunking, embeddings, document coverage, and query formulation.
+
+This MVP evaluation is intentionally limited. It does not grade the final generated answer, verify that every claim is supported by retrieved snippets, detect hallucinations, or test malicious knowledge-base content. It is a lightweight retrieval smoke test, not a full AI quality or safety benchmark.
+
+Future evaluation improvements should include:
+
+- answer faithfulness checks against retrieved snippets;
+- hallucination scoring for unsupported claims;
+- a human review dataset with expected support decisions and acceptable response variants;
+- prompt injection test cases for uploaded knowledge-base documents and ticket text.
+
 ## Human-In-The-Loop Approval
 
 PulseDesk is designed around human-in-the-loop support operations. AI suggestions are internal drafts and classification aids. They are not customer-facing messages until an admin reviews, edits, and approves them outside the AI generation step.
@@ -105,7 +132,7 @@ Before using PulseDesk-style AI support workflows in production, add safeguards 
 - role-based access control for tickets, knowledge documents, AI suggestions, and approval actions;
 - provider timeout, retry, and fallback behavior that does not block core ticket creation;
 - monitoring for AI failure rates, unsafe output reports, retrieval quality, and reviewer override rates;
-- evaluation datasets for common ticket categories, edge cases, security incidents, and policy-sensitive responses;
+- evaluation datasets for retrieval accuracy, answer faithfulness, hallucination risk, prompt injection, common ticket categories, edge cases, security incidents, and policy-sensitive responses;
 - clear customer and admin disclosures about where AI is used.
 
 These controls should be treated as application requirements, not only prompt changes.
@@ -122,6 +149,7 @@ PulseDesk is a portfolio MVP and intentionally keeps the safety system simple. I
 - approval audit trails suitable for regulated environments;
 - provider failover across multiple model vendors;
 - fine-grained retention controls for prompts, snippets, or generated suggestions;
+- full answer-quality evaluation beyond the lightweight RAG retrieval check;
 - compliance guarantees for HIPAA, SOC 2, GDPR, PCI, or similar frameworks;
 - automatic sending of AI-generated replies to customers.
 
