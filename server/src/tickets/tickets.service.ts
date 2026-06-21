@@ -3,6 +3,7 @@ import {
   AiSuggestionStatus,
   Prisma,
   TicketCategory,
+  TicketMessageAuthorType,
   TicketPriority,
   TicketStatus
 } from "@prisma/client";
@@ -23,7 +24,9 @@ import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledg
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
 import { RealtimeService } from "../realtime/realtime.service";
+import type { CreateInternalNoteDto } from "./dto/create-internal-note.dto";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
+import type { CreateTicketMessageDto, TicketMessageAuthorTypeParam } from "./dto/create-ticket-message.dto";
 import type {
   ListTicketsQueryDto,
   TicketCategoryParam,
@@ -96,6 +99,20 @@ export interface GenerateAiSuggestionResultDTO {
     summary?: string;
     retrievedContext?: Prisma.JsonValue;
   };
+}
+
+export type TicketMessageAuthorTypeDTO = "customer" | "admin" | "ai" | "system";
+
+export interface TicketMessageDTO {
+  id: string;
+  ticketId: string;
+  authorType: TicketMessageAuthorTypeDTO;
+  authorName?: string;
+  authorEmail?: string;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface TicketWithCustomerForAi {
@@ -281,6 +298,55 @@ export class TicketsService {
     }
 
     return this.toTicketDetailDto(ticket);
+  }
+
+  async listTicketMessages(ticketId: string): Promise<TicketMessageDTO[]> {
+    await this.ensureTicketExists(ticketId);
+
+    const messages = await this.prisma.ticketMessage.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" }
+    });
+
+    return messages.map((message) => this.toTicketMessageDto(message));
+  }
+
+  async createTicketMessage(
+    ticketId: string,
+    createTicketMessageDto: CreateTicketMessageDto
+  ): Promise<TicketMessageDTO> {
+    await this.ensureTicketExists(ticketId);
+
+    const message = await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        authorType: toPrismaMessageAuthorType(createTicketMessageDto.authorType ?? "ADMIN"),
+        ...(createTicketMessageDto.authorName ? { authorName: createTicketMessageDto.authorName } : {}),
+        ...(createTicketMessageDto.authorEmail ? { authorEmail: createTicketMessageDto.authorEmail } : {}),
+        body: createTicketMessageDto.body,
+        isInternal: false
+      }
+    });
+
+    return this.toTicketMessageDto(message);
+  }
+
+  async createInternalNote(
+    ticketId: string,
+    createInternalNoteDto: CreateInternalNoteDto
+  ): Promise<TicketMessageDTO> {
+    await this.ensureTicketExists(ticketId);
+
+    const message = await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        authorType: TicketMessageAuthorType.ADMIN,
+        body: createInternalNoteDto.body,
+        isInternal: true
+      }
+    });
+
+    return this.toTicketMessageDto(message);
   }
 
   async updateTicketStatus(
@@ -529,6 +595,17 @@ export class TicketsService {
     return where;
   }
 
+  private async ensureTicketExists(ticketId: string): Promise<void> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { id: true }
+    });
+
+    if (!ticket) {
+      throw new NotFoundException("Ticket not found");
+    }
+  }
+
   private toTicketDetailDto(ticket: TicketWithDetailRelations): AdminTicketDetailDTO {
     const customer = this.toCustomerDto(ticket.customer);
 
@@ -632,6 +709,20 @@ export class TicketsService {
       createdAt: suggestion.createdAt.toISOString()
     };
   }
+
+  private toTicketMessageDto(message: Prisma.TicketMessageGetPayload<{}>): TicketMessageDTO {
+    return {
+      id: message.id,
+      ticketId: message.ticketId,
+      authorType: toApiMessageAuthorType(message.authorType),
+      ...(message.authorName ? { authorName: message.authorName } : {}),
+      ...(message.authorEmail ? { authorEmail: message.authorEmail } : {}),
+      body: message.body,
+      isInternal: message.isInternal,
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString()
+    };
+  }
 }
 
 function toPrismaStatus(status: TicketStatusParam): TicketStatus {
@@ -667,6 +758,15 @@ function toPrismaCategory(category: TicketCategoryParam): TicketCategory {
   };
 
   return categoryMap[category];
+}
+
+function toPrismaMessageAuthorType(authorType: TicketMessageAuthorTypeParam): TicketMessageAuthorType {
+  const authorTypeMap: Record<TicketMessageAuthorTypeParam, TicketMessageAuthorType> = {
+    ADMIN: TicketMessageAuthorType.ADMIN,
+    CUSTOMER: TicketMessageAuthorType.CUSTOMER
+  };
+
+  return authorTypeMap[authorType];
 }
 
 function toApiStatus(status: TicketStatus): ApiTicketStatus {
@@ -714,6 +814,17 @@ function toApiAiSuggestionStatus(status: AiSuggestionStatus) {
   };
 
   return statusMap[status];
+}
+
+function toApiMessageAuthorType(authorType: TicketMessageAuthorType): TicketMessageAuthorTypeDTO {
+  const authorTypeMap: Record<TicketMessageAuthorType, TicketMessageAuthorTypeDTO> = {
+    CUSTOMER: "customer",
+    ADMIN: "admin",
+    AI: "ai",
+    SYSTEM: "system"
+  };
+
+  return authorTypeMap[authorType];
 }
 
 function isPrismaNotFoundError(error: unknown): boolean {
