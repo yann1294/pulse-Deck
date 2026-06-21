@@ -1,8 +1,6 @@
 # PulseDesk
 
-PulseDesk is a full-stack AI customer-support desk MVP for teams that want faster ticket triage without removing human judgment from customer communication.
-
-It demonstrates a production-shaped SaaS workflow: public ticket intake, authenticated support dashboard, knowledge-base powered AI suggestions, PostgreSQL pgvector search, BullMQ background jobs, realtime updates, Dockerized services, and deployment-ready documentation.
+PulseDesk is a full-stack AI-assisted customer support desk that combines public ticket intake, authenticated operations dashboards, RAG-grounded AI suggestions, and human-reviewed support workflows.
 
 ## Live Demo
 
@@ -10,109 +8,125 @@ It demonstrates a production-shaped SaaS workflow: public ticket intake, authent
 - Backend health check: `https://your-railway-api-url.example.com/health`
 - Demo credentials: `Add Clerk demo user credentials here`
 
-## Demo Workspace
+## Screenshots
 
-PulseDesk includes a recruiter-friendly demo mode with fake customers, tickets, knowledge-base documents, and pre-generated AI suggestions.
+Add screenshots after deployment:
 
-1. Start PostgreSQL and Redis:
-
-```sh
-docker compose up -d postgres redis
-```
-
-2. Copy and update local env files:
-
-```sh
-cp .env.example .env
-cp client/.env.local.example client/.env.local
-cp server/.env.example server/.env
-```
-
-3. Run migrations and seed demo data:
-
-```sh
-pnpm install
-pnpm db:migrate
-pnpm demo:seed
-```
-
-4. Enable the dashboard demo banner in `client/.env.local`:
-
-```sh
-NEXT_PUBLIC_DEMO_MODE=true
-```
+- Landing page: `docs/screenshots/landing.png`
+- Dashboard: `docs/screenshots/dashboard.png`
+- Ticket detail + AI panel: `docs/screenshots/ticket-detail-ai-panel.png`
+- Knowledge-base page: `docs/screenshots/knowledge-base.png`
+- Customer detail page: `docs/screenshots/customer-detail.png`
 
 ## Problem
 
-Support teams often lose time switching between tickets, customer history, internal docs, and AI tools. Generic AI chat workflows can produce unsupported answers, hide uncertainty, and encourage direct automation where human review is still required.
-
-PulseDesk treats AI as an internal support assistant, not an autonomous customer agent.
+Support teams often work across disconnected tools: public ticket intake, customer history, internal notes, knowledge-base articles, AI assistants, and SLA tracking. Generic AI chat tools can speed up drafting, but they often hide source context, overstate confidence, and encourage automation before a human has reviewed the response.
 
 ## Solution
 
-PulseDesk centralizes ticket intake, triage, customer context, knowledge retrieval, and AI-generated draft suggestions in one dashboard. AI jobs run asynchronously, retrieved snippets are shown for review, and customer-facing replies remain human-controlled.
+PulseDesk centralizes the support workflow in one SaaS-style product. Customers submit tickets publicly, admins manage tickets in a protected dashboard, background jobs classify and prioritize tickets, RAG retrieves relevant knowledge-base snippets, and AI-generated replies remain editable drafts until a human approves them.
 
-## Features
+The MVP is intentionally human-in-the-loop: approving an AI reply adds it to the ticket conversation, but does not send customer email automatically.
 
-- Public support ticket submission form.
-- Authenticated admin dashboard with filtering, KPI cards, and responsive mobile cards.
-- Ticket detail workspace with customer history and AI safety indicators.
-- Knowledge-base upload for PDF, TXT, and Markdown files.
-- Text chunking, embeddings, and pgvector similarity search.
-- Gemini-powered classification, priority prediction, and reply drafting.
-- BullMQ background jobs backed by Redis.
+## Core Features
+
+- Public customer ticket submission.
+- Clerk-protected admin dashboard.
+- Ticket filters for status, priority, category, and search.
+- Customer profiles with ticket metrics, recent ticket history, and activity timeline.
+- AI category classification and priority prediction.
+- RAG-based reply suggestions with retrieved knowledge snippets.
+- Editable AI approval flow with edited-vs-approved tracking.
+- Ticket conversation threads.
+- Internal notes.
+- SLA badges for on-track, due-soon, and overdue tickets.
+- Knowledge-base upload, chunking, embeddings, and pgvector search.
 - Socket.IO realtime updates with polling fallback.
-- Demo workspace seed data for portfolio review.
-- Docker Compose stack for PostgreSQL pgvector, Redis, and optional NestJS server.
-- CI workflow for client and server checks.
+- Demo workspace seed data for recruiter review.
+- RAG retrieval evaluation script.
+- Docker Compose local infrastructure.
+- GitHub Actions CI for client and server checks.
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-  Customer[Customer] --> Client[Next.js Client]
-  Admin[Support Admin] --> Client
-  Client -->|REST API| API[NestJS API]
-  Client <-->|Socket.IO| Realtime[Realtime Gateway]
-  Realtime --> API
-  API --> Prisma[Prisma ORM]
-  Prisma --> Postgres[(PostgreSQL + pgvector)]
-  API --> Queue[BullMQ Queue]
-  Queue --> Redis[(Redis)]
-  Worker[Ticket AI Processor] --> Queue
-  Worker --> Gemini[Gemini API]
-  Worker --> Postgres
-  Worker --> Realtime
-  API --> Clerk[Clerk Auth]
+flowchart TB
+  subgraph Frontend["Next.js App Router"]
+    Landing["Landing Page"]
+    SubmitTicket["Customer Ticket Form"]
+    Dashboard["Admin Dashboard"]
+    Tickets["Tickets Workspace"]
+    Customers["Customer Workspace"]
+    AiReview["AI Suggestions Review"]
+    KnowledgeBase["Knowledge Base"]
+  end
+
+  Clerk["Clerk Auth"]
+  Api["NestJS API"]
+  Realtime["Socket.IO Gateway"]
+  Prisma["Prisma ORM"]
+  Postgres[("PostgreSQL")]
+  Pgvector[("pgvector")]
+  Redis[("Redis")]
+  BullMQ["BullMQ Worker"]
+  Gemini["Gemini API"]
+
+  Landing --> SubmitTicket
+  SubmitTicket -->|POST /tickets| Api
+  Dashboard -->|REST + Clerk token| Api
+  Tickets -->|REST + Clerk token| Api
+  Customers -->|REST + Clerk token| Api
+  AiReview -->|REST + Clerk token| Api
+  KnowledgeBase -->|REST + Clerk token| Api
+
+  Dashboard <-->|ticket.updated / ticket.aiSuggestionReady| Realtime
+  Tickets <-->|ticket.updated / ticket.aiSuggestionReady| Realtime
+  Realtime --> Api
+
+  Api --> Clerk
+  Api --> Prisma
+  Prisma --> Postgres
+  Postgres --- Pgvector
+
+  Api -->|enqueue classify / prioritize / suggest-reply| Redis
+  Redis --> BullMQ
+  BullMQ --> Gemini
+  BullMQ --> Prisma
+  BullMQ --> Realtime
+  Api -->|embeddings + generation| Gemini
 ```
 
 ## Tech Stack And Rationale
 
-- Next.js, React, TypeScript: typed frontend with App Router, dashboard pages, and public intake flow.
-- Tailwind CSS: consistent custom design system without heavy UI dependencies.
-- TanStack Query: server-state caching, invalidation, and polling fallback.
-- Socket.IO: realtime ticket and AI suggestion updates.
-- NestJS: structured backend modules, DTO validation, and clear service boundaries.
-- Prisma: typed database access and migrations.
-- PostgreSQL pgvector: stores embeddings and supports semantic knowledge retrieval.
-- Redis + BullMQ: reliable background AI job processing outside the request path.
-- Gemini: generation and embedding provider for the MVP AI workflow.
-- Clerk: authentication for protected dashboard routes.
-- Docker and GitHub Actions: production-oriented packaging and repeatable checks.
+- Next.js App Router: modern React frontend with public pages and protected dashboard routes.
+- TypeScript: shared type safety across frontend, backend, and common DTOs.
+- Tailwind CSS: custom responsive B2B SaaS interface without a heavy component dependency.
+- Clerk: authentication for protected dashboard workflows.
+- TanStack Query: server-state fetching, cache invalidation, and polling fallback.
+- Socket.IO: realtime dashboard updates when AI jobs complete.
+- NestJS: modular backend architecture with DTO validation and clear service boundaries.
+- Prisma: typed PostgreSQL access and migrations.
+- PostgreSQL + pgvector: relational support data and vector retrieval in one database.
+- Redis + BullMQ: asynchronous AI processing outside the request path.
+- Gemini: embeddings and structured AI generation.
+- Docker Compose: local PostgreSQL pgvector and Redis stack.
+- GitHub Actions: separate client and server CI jobs.
 
 ## Product Design
 
-PulseDesk uses a modern B2B SaaS visual system designed for support operations rather than a generic AI dashboard. The UI is responsive across mobile, tablet, and desktop, with dashboard tables converting into mobile-friendly cards.
+PulseDesk uses a modern B2B SaaS visual system built for support operations. The UI is responsive across mobile, tablet, and desktop, with dense dashboard tables converting to mobile-friendly cards.
 
-The palette intentionally avoids generic blue and purple AI styling. Graphite and zinc neutrals create the operational base, while emerald and teal accents communicate live status, AI readiness, and successful workflow states.
+The palette intentionally avoids generic blue or purple AI dashboard styling. Graphite and zinc neutrals provide the operational base, while emerald and teal indicate healthy/generated states, amber indicates review states, and rose indicates failures or urgent risk.
 
 ## Local Setup
 
 Requirements:
 
 - Node.js 20+
-- pnpm 11.8.0 or compatible pnpm 9+
+- pnpm 9+; the repo is pinned to `pnpm@11.8.0`
 - Docker Desktop or another Docker runtime
+- Clerk application keys
+- Gemini API key
 
 Install dependencies:
 
@@ -120,48 +134,21 @@ Install dependencies:
 pnpm install
 ```
 
-Start local infrastructure:
+Start PostgreSQL pgvector and Redis:
 
 ```sh
 docker compose up -d postgres redis
 ```
 
-Run the apps:
+Create local env files:
 
 ```sh
-pnpm dev:server
-pnpm dev:client
+cp .env.example .env
+cp server/.env.example server/.env
+cp client/.env.local.example client/.env.local
 ```
 
-Default URLs:
-
-- Client: `http://localhost:3000`
-- Server: `http://localhost:4000`
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
-
-## Environment Variables
-
-Use the example files as the source of truth:
-
-- `.env.example`: Docker Compose defaults.
-- `client/.env.local.example`: Next.js and Clerk frontend settings.
-- `server/.env.example`: NestJS, database, Redis, Clerk, Gemini, and AI settings.
-
-Common client variables:
-
-```sh
-NEXT_PUBLIC_API_URL=http://localhost:4000
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_replace_me
-CLERK_SECRET_KEY=sk_test_replace_me
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
-NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
-NEXT_PUBLIC_DEMO_MODE=false
-```
-
-Common server variables:
+Server env highlights in `server/.env`:
 
 ```sh
 PORT=4000
@@ -180,146 +167,193 @@ EMBEDDING_DIM=768
 DEMO_MODE=false
 ```
 
-Do not commit real secrets.
-
-## Running With Docker
-
-Start PostgreSQL pgvector and Redis:
+Client env highlights in `client/.env.local`:
 
 ```sh
-docker compose up -d postgres redis
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_replace_me
+CLERK_SECRET_KEY=sk_test_replace_me
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
+NEXT_PUBLIC_DEMO_MODE=false
 ```
 
-Run the optional NestJS server container alongside the data services:
-
-```sh
-docker compose --profile server up --build
-```
-
-The server container listens on `SERVER_PORT`, defaulting to `3001`.
-
-## Database Migrations And Seed Data
-
-Generate Prisma client:
+Generate Prisma Client and apply migrations:
 
 ```sh
 pnpm db:generate
-```
-
-Apply migrations:
-
-```sh
 pnpm db:migrate
 ```
 
-Seed standard local data:
+Seed local data:
 
 ```sh
 pnpm db:seed
 ```
 
-Seed the demo workspace:
+Seed the recruiter demo workspace:
 
 ```sh
 pnpm demo:seed
 ```
 
-The demo seed is idempotent and can be re-run safely.
-
-## AI/RAG Workflow
-
-1. Admin uploads a knowledge-base document.
-2. The server extracts text from PDF, TXT, or Markdown files.
-3. Text is normalized and split into overlapping chunks.
-4. Gemini embeddings are generated for each chunk.
-5. Chunks and embeddings are stored in PostgreSQL using pgvector.
-6. When a ticket needs a reply draft, PulseDesk embeds the ticket query and retrieves similar chunks.
-7. Retrieved snippets are provided to Gemini as grounding context.
-8. The dashboard shows the draft, confidence score, retrieved snippets, limitations, and review-required status.
-
-AI output is always treated as a suggestion.
-
-## RAG Evaluation
-
-PulseDesk includes a lightweight retrieval evaluation dataset in `server/evals/rag-eval-cases.json`. It checks whether pgvector retrieval returns the expected knowledge-base document for representative support questions.
-
-Run it after migrations and seed data:
+Run the backend:
 
 ```sh
-pnpm demo:seed
+pnpm dev:server
+```
+
+Run the frontend:
+
+```sh
+pnpm dev:client
+```
+
+Default local URLs:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:4000`
+- Health check: `http://localhost:4000/health`
+
+## Docker Setup
+
+Start only PostgreSQL pgvector and Redis:
+
+```sh
+docker compose up -d postgres redis
+```
+
+Run the optional NestJS server profile alongside PostgreSQL and Redis:
+
+```sh
+docker compose --profile server up --build
+```
+
+The server service builds from `./server`, depends on PostgreSQL and Redis, and exposes port `3001` by default for the containerized API.
+
+## Testing
+
+Run all package builds:
+
+```sh
+pnpm build
+```
+
+Run all package lint/type checks:
+
+```sh
+pnpm lint
+```
+
+Run backend tests:
+
+```sh
+pnpm --filter @pulsedesk/server test
+```
+
+Run frontend Playwright tests:
+
+```sh
+pnpm test:e2e
+```
+
+Open Playwright UI:
+
+```sh
+pnpm test:e2e:ui
+```
+
+Run the RAG retrieval evaluation after migrations and seed data:
+
+```sh
 pnpm eval:rag
 ```
 
-The script reports:
+`eval:rag` reports top-1 and top-3 retrieval accuracy for representative support questions. It is a retrieval sanity check, not a full AI answer-quality benchmark.
 
-- Top-1 retrieval accuracy: the expected document was the first retrieved result.
-- Top-3 retrieval accuracy: the expected document appeared anywhere in the first three retrieved results.
+## AI / RAG Workflow
 
-Retrieval evaluation matters because RAG answer quality depends on getting the right context before the model drafts a response. This eval is intentionally simple: it measures document retrieval only, not whether the final AI answer is faithful, complete, safe, or well-written.
-
-Future evaluation work should add answer faithfulness checks, hallucination scoring, a human-reviewed support dataset, and prompt-injection test cases for uploaded knowledge-base content.
+1. An admin uploads a knowledge-base document.
+2. The backend parses text, normalizes it, and splits it into chunks.
+3. Gemini generates embeddings for each chunk.
+4. PostgreSQL stores chunks and vectors with pgvector.
+5. Ticket AI jobs classify category, predict priority, and retrieve relevant snippets.
+6. Gemini drafts a suggested reply using retrieved context.
+7. The dashboard shows the draft, summary, confidence, snippets, and limitations.
+8. An admin edits or approves the reply.
+9. Approval stores the final reply in the ticket conversation without sending email.
 
 ## Queue Workflow
 
-Ticket creation enqueues three BullMQ jobs:
+Ticket creation enqueues BullMQ jobs backed by Redis:
 
 - `classify`: predicts ticket category.
 - `prioritize`: predicts support priority.
-- `suggest-reply`: retrieves knowledge context and drafts a reply.
+- `suggest-reply`: retrieves RAG context and drafts a response.
 
-Redis backs the queue. The NestJS ticket AI processor runs jobs asynchronously, updates ticket AI status, stores suggestion records, and emits realtime Socket.IO events so the dashboard can refresh without relying only on polling.
+The worker updates tickets and AI suggestions, then emits Socket.IO events so the dashboard can refresh relevant TanStack Query caches.
 
 ## Deployment
 
-Recommended production split:
+Recommended deployment split:
 
 - Frontend: Vercel project rooted at `client/`.
-- Backend: Railway service using `server/Dockerfile` with repository root as the Docker build context.
+- Backend API: Railway or another container platform using `server/Dockerfile`.
 - Database: PostgreSQL provider with pgvector support.
 - Queue: managed Redis.
+- Auth: Clerk production application.
+- AI: Gemini API key and model configuration.
 
-Deployment details are documented in [docs/deployment.md](docs/deployment.md).
+Detailed deployment steps are in [docs/deployment.md](docs/deployment.md).
 
 ## AI Safety And Limitations
 
-PulseDesk is intentionally human-in-the-loop:
+PulseDesk is an MVP and does not claim production-grade AI safety.
 
-- AI drafts are never automatically sent to customers.
-- Retrieved snippets and limitations are shown to reviewers.
-- Missing knowledge context triggers manual verification indicators.
-- Failed AI jobs are surfaced instead of hidden.
-- Demo mode should use fake or non-sensitive data.
+Implemented safety boundaries:
 
-MVP limitations:
+- AI suggestions are drafts only.
+- Admins must review, edit, and approve replies.
+- Approved replies are added to the conversation but are not emailed automatically.
+- Retrieved knowledge snippets, confidence, limitations, and manual verification states are visible in the UI.
+- AI failure states are surfaced instead of hidden.
 
-- No automatic PII redaction before model calls.
-- No advanced prompt-injection scanner for uploaded documents.
-- No compliance guarantees for regulated environments.
-- No provider failover across model vendors.
-- No production-grade approval audit trail yet.
+Known MVP limitations:
+
+- no automatic PII or secret redaction before model calls;
+- no full prompt-injection defense for uploaded knowledge-base documents;
+- no answer faithfulness scoring yet;
+- no advanced RBAC or regulated audit log;
+- no compliance guarantees.
 
 See [docs/ai-safety.md](docs/ai-safety.md) for the detailed safety posture.
 
-## Screenshots
+## Demo Script
 
-Add screenshots after deployment:
+Use [docs/demo-script.md](docs/demo-script.md) for a 3-5 minute recruiter walkthrough covering the landing page, ticket submission, dashboard, ticket workspace, AI approval flow, customers, knowledge base, architecture, and AI safety.
 
-- Landing page: `docs/screenshots/landing.png`
-- Dashboard: `docs/screenshots/dashboard.png`
-- Ticket detail AI safety panel: `docs/screenshots/ticket-detail.png`
-- Knowledge base: `docs/screenshots/knowledge-base.png`
-- Mobile dashboard: `docs/screenshots/mobile-dashboard.png`
+## Additional Documentation
+
+- [Architecture](docs/architecture.md)
+- [API contracts](docs/api-contracts.md)
+- [Deployment](docs/deployment.md)
+- [AI safety](docs/ai-safety.md)
+- [Case study](docs/case-study.md)
 
 ## Future Improvements
 
-- Full reply editor and send workflow with approval audit logs.
-- Tenant/workspace model with stricter authorization boundaries.
-- Document versioning and knowledge-base review workflow.
-- Prompt-injection and secret scanning for uploaded documents.
-- Higher-quality evaluation set for AI classification and response drafts.
-- Admin analytics for AI failure rate, reviewer edits, and retrieval quality.
-- Production observability with structured logs, tracing, and queue metrics.
+- Email sending integration after human approval.
+- Advanced RBAC and tenant/workspace isolation.
+- Append-only audit logs for prompts, snippets, edits, approvals, and sent messages.
+- Separate API and worker deployments.
+- Stronger RAG evaluation with larger human-reviewed datasets.
+- Prompt-injection detection and document sanitization for uploaded knowledge-base files.
+- Answer faithfulness scoring against retrieved snippets.
+- PII and secret redaction before AI calls.
+- Production observability for queues, AI failures, latency, and reviewer override rates.
 
-## Author And Portfolio Note
+## Portfolio Note
 
-PulseDesk is a portfolio-grade full-stack SaaS project built to demonstrate practical product engineering: typed frontend and backend, AI/RAG integration, background jobs, realtime UX, PostgreSQL pgvector, Docker, CI/CD, deployment documentation, and clear AI safety boundaries.
+PulseDesk is a portfolio-grade full-stack SaaS project built to demonstrate production-aware engineering: responsive Next.js UI, NestJS APIs, Clerk authentication, PostgreSQL pgvector search, Prisma data modeling, Redis/BullMQ background jobs, Gemini AI/RAG integration, Socket.IO realtime updates, Docker, CI/CD, deployment planning, and honest AI safety boundaries.
