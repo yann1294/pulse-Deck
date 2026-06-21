@@ -1,35 +1,46 @@
-# Deployment
+# PulseDesk Deployment Guide
 
-PulseDesk is a pnpm monorepo with three deployable concerns:
+PulseDesk is a pnpm monorepo with a Next.js frontend, NestJS backend, PostgreSQL/pgvector database, Redis-backed BullMQ jobs, Gemini AI integration, Clerk authentication, Socket.IO realtime updates, Prisma migrations, demo seed data, and a lightweight RAG retrieval evaluation script.
 
-- `client/`: Next.js dashboard and public ticket submission UI.
-- `server/`: NestJS API, Socket.IO gateway, BullMQ workers, Prisma.
-- `packages/shared/`: shared TypeScript DTOs used by both apps.
+This guide describes a practical production-style deployment for the current implementation.
 
-The recommended production split is Vercel for the frontend, Railway for the backend, Railway PostgreSQL with pgvector, and Railway Redis.
+## 1. Deployment Overview
 
-## Frontend: Vercel
+Recommended deployment split:
 
-Create a Vercel project from this repository and set the project root to `client/`.
+- Frontend: Vercel, deployed from `client/`.
+- Backend API: Railway or another container platform, deployed from `server/` with the repository root available as build context.
+- PostgreSQL: Railway, Supabase, Neon, or another provider with pgvector support.
+- Redis: Railway Redis or a managed Redis provider.
+- AI provider: Gemini API.
+- Auth provider: Clerk.
 
-Use the default Next.js build unless Vercel asks for explicit commands:
+The current backend runs the NestJS API and BullMQ worker in the same service process. That keeps the MVP simple. A future production setup can split the API and worker into separate containers that share the same codebase, Redis instance, and database.
+
+The repository also includes an optional Docker Compose local stack for PostgreSQL pgvector, Redis, and the server profile.
+
+## 2. Frontend Deployment On Vercel
+
+Create a Vercel project from this repository.
+
+Recommended settings:
+
+- Root directory: `client`
+- Framework preset: Next.js
+- Build command:
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm --filter @pulsedesk/shared build
-pnpm --filter @pulsedesk/client build
+pnpm --filter @pulsedesk/shared build && pnpm --filter @pulsedesk/client build
 ```
 
-If Vercel cannot resolve `@pulsedesk/shared`, configure the project as a monorepo project from the repository root and keep `client/` as the app directory. The shared package must be built before the client.
+If Vercel installs from inside `client/` and cannot resolve `@pulsedesk/shared`, configure the project as a monorepo deployment from the repository root while keeping `client/` as the app directory.
 
-### Frontend Environment Variables
-
-Set these in Vercel:
+Frontend environment variables:
 
 ```bash
-NEXT_PUBLIC_API_URL=https://your-railway-api.example.com
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
 CLERK_SECRET_KEY=sk_live_...
+NEXT_PUBLIC_API_URL=https://your-backend.example.com
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
@@ -37,39 +48,37 @@ NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
 NEXT_PUBLIC_DEMO_MODE=false
 ```
 
-`NEXT_PUBLIC_API_URL` must point at the public Railway backend URL. The same URL is used by REST calls and Socket.IO.
+Notes:
 
-Set `NEXT_PUBLIC_DEMO_MODE=true` only for portfolio/demo deployments where the dashboard should show the Demo Workspace banner.
+- `NEXT_PUBLIC_API_URL` must point to the public NestJS backend URL. The frontend uses it for REST requests and Socket.IO.
+- `CLERK_SECRET_KEY` is included because Clerk's Next.js integration may require it for server-side auth helpers.
+- If you deploy a recruiter demo, set `NEXT_PUBLIC_DEMO_MODE=true` to show the Demo Workspace banner.
+- Configure Clerk allowed domains for the Vercel production domain and any custom domain.
+- Update backend `CLIENT_URL` to match the Vercel origin exactly.
 
-## Backend: Railway
+## 3. Backend Deployment On Railway
 
-Create a Railway service for the NestJS server.
+Create a Railway service for the NestJS backend.
 
-Because the server depends on `packages/shared`, the Docker build context must be the repository root. Use:
+Docker deployment:
 
 - Build context: repository root
 - Dockerfile path: `server/Dockerfile`
 - Public port: `3001`
 
-Do not configure Railway with `server/` as the only build context unless the Dockerfile is rewritten to copy only files inside `server/`. The current production Dockerfile intentionally builds from the monorepo root.
+The Dockerfile expects the monorepo root so it can copy `server/`, `packages/shared/`, and workspace lockfiles. Do not use `server/` as the only Docker build context unless the Dockerfile is rewritten for that layout.
 
-The container starts with:
-
-```bash
-node dist/main.js
-```
-
-Run Prisma migrations during deployment, before accepting traffic:
+If not using Docker, use these commands:
 
 ```bash
-pnpm --filter @pulsedesk/server db:migrate
+pnpm install --frozen-lockfile
+pnpm --filter @pulsedesk/shared build
+pnpm --filter @pulsedesk/server prisma:generate
+pnpm --filter @pulsedesk/server build
+pnpm --filter @pulsedesk/server start
 ```
 
-On Railway this can be a pre-deploy command or a one-off release command after provisioning the database.
-
-### Backend Environment Variables
-
-Set these in Railway:
+Backend environment variables:
 
 ```bash
 NODE_ENV=production
@@ -88,82 +97,115 @@ GEMINI_API_KEY=...
 GEMINI_GENERATION_MODEL=gemini-3.5-flash
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 EMBEDDING_DIM=768
+
 DEMO_MODE=false
 ```
 
-Use Railway variable references when possible instead of copying credentials manually.
+Use Railway variable references where available instead of copying database and Redis credentials manually.
 
-Set `DEMO_MODE=true` only when running the demo seed command. Keep it `false` for normal production operation.
+## 4. PostgreSQL + pgvector Setup
 
-## PostgreSQL pgvector
+PulseDesk requires PostgreSQL with the `vector` extension enabled. The Prisma schema stores embeddings as `vector(768)`.
 
-PulseDesk uses Prisma with PostgreSQL and pgvector-backed embeddings. Production PostgreSQL must support the `vector` extension.
+The migration setup should create the extension if configured, but provider support still matters. Not every hosted PostgreSQL plan allows extensions by default.
 
-Before running migrations, confirm pgvector is available:
+Verify pgvector manually:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
+SELECT extname FROM pg_extension WHERE extname = 'vector';
 ```
 
-Railway's standard PostgreSQL may not include pgvector in every plan or image. If pgvector is unavailable, use a Railway-compatible Postgres image/provider that includes pgvector, or host Postgres on a provider with pgvector support.
+If the extension cannot be created:
 
-Run migrations with:
+- enable extensions in the provider dashboard if available;
+- switch to a pgvector-enabled PostgreSQL image or plan;
+- use a provider such as Supabase, Neon, or Railway configuration that supports pgvector.
+
+## 5. Redis / BullMQ Setup
+
+Redis is required for AI background jobs. Ticket creation stores the ticket immediately, then BullMQ runs classification, priority prediction, and reply suggestion work asynchronously.
+
+Production requirements:
+
+- Provision Railway Redis or another managed Redis service.
+- Set `REDIS_HOST` to the provider's internal/private hostname when backend and Redis run on the same platform.
+- Set `REDIS_PORT`, usually `6379`.
+- Do not use `localhost` in production unless Redis is intentionally running in the same container.
+
+The current MVP runs API and worker together. If you split workers later, the worker container must run the same server build with access to:
+
+- `DATABASE_URL`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- Gemini environment variables
+- Clerk variables if protected workflow code needs them
+
+## 6. Prisma Production Migration Steps
+
+Run Prisma generation during build:
+
+```bash
+pnpm --filter @pulsedesk/server prisma:generate
+```
+
+Run production migrations before serving traffic:
 
 ```bash
 pnpm --filter @pulsedesk/server db:migrate
 ```
 
-Do not use `prisma migrate dev` in production.
+The root equivalent is also available:
 
-## Redis
+```bash
+pnpm db:migrate
+```
 
-Redis is required for BullMQ ticket AI processing.
+Seed commands are available, but use them only in local, staging, or recruiter demo environments:
 
-Production requirements:
+```bash
+pnpm db:seed
+pnpm demo:seed
+```
 
-- Use a managed Redis service or a Railway Redis plugin.
-- Set `REDIS_HOST` to the internal/private Redis hostname when backend and Redis are on Railway.
-- Set `REDIS_PORT` to the provider port, usually `6379`.
-- Do not use `localhost` in production unless Redis runs in the same container, which is not recommended.
+Do not run `pnpm db:reset` or Prisma reset commands against production. They are destructive and can remove production data.
 
-If Redis is unreachable, ticket creation can still succeed, but AI jobs and realtime AI updates will not process reliably.
+## 7. Socket.IO / Realtime Deployment Notes
 
-## CORS And Realtime
+PulseDesk uses Socket.IO for dashboard updates.
 
-The NestJS backend uses `CLIENT_URL` for both HTTP CORS and Socket.IO CORS.
+Requirements:
 
-Set:
+- The backend hosting platform must support WebSocket connections.
+- `CLIENT_URL` on the backend must exactly match the deployed frontend origin.
+- `NEXT_PUBLIC_API_URL` on the frontend must point to the backend origin.
+- CORS must allow the frontend origin for both HTTP and Socket.IO.
+
+Example:
 
 ```bash
 CLIENT_URL=https://your-vercel-app.vercel.app
+NEXT_PUBLIC_API_URL=https://your-backend.example.com
 ```
 
-The value must exactly match the frontend origin, including scheme and domain. Do not include a trailing path.
+If Socket.IO cannot connect, the dashboard still has polling fallback, but realtime AI status updates will feel delayed.
 
-If you use a custom frontend domain, update `CLIENT_URL` to that domain and redeploy the backend.
+## 8. Clerk Production Checklist
 
-## Clerk Setup
+In Clerk:
 
-In Clerk, configure the production application with the Vercel domain or custom domain.
+- Add the Vercel domain and any custom domain to authorized domains.
+- Use the same Clerk application for frontend and backend.
+- Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in Vercel.
+- Set `CLERK_SECRET_KEY` where frontend server-side Clerk helpers require it.
+- Set backend `CLERK_SECRET_KEY`.
+- Set backend `CLERK_PUBLISHABLE_KEY`.
+- Set backend `CLERK_AUTHORIZED_PARTY` to the exact frontend origin.
+- Configure and copy `CLERK_JWT_KEY` if using JWT public-key verification.
 
-Backend settings:
+Common mismatch: the user can sign in, but API requests return `401`. Check that the frontend origin, `CLERK_AUTHORIZED_PARTY`, Clerk app keys, and backend environment all refer to the same production Clerk application.
 
-- `CLERK_SECRET_KEY`: backend secret key.
-- `CLERK_PUBLISHABLE_KEY`: publishable key.
-- `CLERK_JWT_KEY`: JWT public key from Clerk, recommended for verification.
-- `CLERK_AUTHORIZED_PARTY`: frontend origin, for example `https://app.example.com`.
-
-Frontend settings:
-
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
-- sign-in/sign-up route variables listed above.
-
-Common Clerk mismatch: the frontend works, but API requests return unauthorized. Check that `CLERK_AUTHORIZED_PARTY` exactly matches the browser origin and that the frontend is using the same Clerk application as the backend.
-
-## Gemini Setup
-
-Create a Gemini API key in Google AI Studio or the Google Cloud setup used by the team.
+## 9. Gemini Production Checklist
 
 Set:
 
@@ -174,59 +216,129 @@ GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 EMBEDDING_DIM=768
 ```
 
-`EMBEDDING_DIM` must match the pgvector column dimension in Prisma migrations. The current schema expects `vector(768)`.
+Production notes:
 
-## Common Blockers And Fixes
+- Confirm the API key has access to the configured generation and embedding models.
+- Monitor quota, billing, and rate limits.
+- Keep `EMBEDDING_DIM` aligned with the pgvector column dimension.
+- AI failures should not crash ticket submission. The current backend records failed AI suggestion state and emits ticket update events so the admin dashboard can show the failure.
 
-**`Cannot find module '@pulsedesk/shared'` during frontend or backend build**
+## 10. Demo Workspace Deployment
 
-Build `packages/shared` before building the app, and make sure the deployment platform can access the monorepo root.
+For a recruiter demo, use a separate staging database and seed fake data:
 
-**Railway build cannot find `server/src`**
+```bash
+pnpm demo:seed
+```
 
-The Dockerfile path can be `server/Dockerfile`, but the build context must be the repository root.
+`demo:seed` runs the existing seed script with `DEMO_MODE=true`. The regular command is also available:
+
+```bash
+pnpm db:seed
+```
+
+Recommended demo setup:
+
+- Use a dedicated demo database, not production.
+- Set `NEXT_PUBLIC_DEMO_MODE=true` in Vercel so the dashboard shows the Demo Workspace banner.
+- Keep backend `DEMO_MODE=false` for normal runtime; use `DEMO_MODE=true` only when running the demo seed command.
+- Do not upload real customer data, private company policies, or sensitive documents in demo mode.
+
+## 11. RAG Evaluation In Staging
+
+PulseDesk includes a lightweight retrieval evaluation script:
+
+```bash
+pnpm eval:rag
+```
+
+Run it after seeding knowledge-base data in a local or staging environment. The script checks whether the expected knowledge-base document appears in the top retrieved results for representative questions.
+
+Use it as a retrieval sanity check:
+
+- Top-1 accuracy means the expected document was the first result.
+- Top-3 accuracy means the expected document appeared in the first three results.
+
+This does not prove answer quality, faithfulness, prompt-injection resistance, or production readiness. It only checks whether retrieval is finding the expected source material.
+
+## 12. Optional Docker Compose Local Stack
+
+For local infrastructure, use Docker Compose from the repository root.
+
+Start PostgreSQL pgvector and Redis:
+
+```bash
+docker compose up -d postgres redis
+```
+
+Start the optional server profile:
+
+```bash
+docker compose --profile server up --build
+```
+
+In Docker Compose, backend database and Redis hostnames should use service names:
+
+```bash
+DATABASE_URL=postgresql://pulsedesk:pulsedesk@postgres:5432/pulsedesk?schema=public
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
+
+For local commands run on the host machine, use the exposed localhost port from `docker-compose.yml`.
+
+## 13. Common Deployment Issues And Fixes
+
+**CORS errors in the browser**
+
+Set backend `CLIENT_URL` to the exact Vercel origin. Include `https://`; do not include a path.
+
+**Clerk `401` errors**
+
+Verify Clerk keys, authorized domains, `CLERK_AUTHORIZED_PARTY`, and that frontend/backend use the same Clerk application.
+
+**Redis connection errors**
+
+Check `REDIS_HOST` and `REDIS_PORT`. On Railway, prefer the internal Redis hostname when available.
+
+**pgvector extension missing**
+
+Run `CREATE EXTENSION IF NOT EXISTS vector;` or enable pgvector through the provider. If the provider blocks extensions, move to a pgvector-capable database.
+
+**Prisma migration failure**
+
+Check `DATABASE_URL`, database permissions, network access, and pgvector availability. Use `pnpm --filter @pulsedesk/server db:migrate` for production migrations, not `migrate dev`.
+
+**Gemini invalid API key or model error**
+
+Confirm `GEMINI_API_KEY`, model names, billing, quota, and regional/model availability.
+
+**Socket.IO connection blocked**
+
+Confirm WebSocket support on the backend platform, `CLIENT_URL` CORS settings, and `NEXT_PUBLIC_API_URL`.
+
+**`NEXT_PUBLIC_API_URL` points to the wrong backend**
+
+Update the Vercel environment variable and redeploy the frontend. Browser-exposed `NEXT_PUBLIC_*` variables are compiled into the deployed client bundle.
+
+**Railway build cannot find monorepo files**
+
+Use repository root as the Docker build context and `server/Dockerfile` as the Dockerfile path.
 
 **`Cannot find module '@nestjs/common'` at runtime**
 
-Rebuild with the current Dockerfile. The runner stage must install production dependencies and run Prisma generation in the final image.
-
-**`@prisma/client did not initialize yet`**
-
-Run `pnpm --filter @pulsedesk/server prisma:generate` during image build. The current Dockerfile already does this in the runner stage.
-
-**`Can't reach database server`**
-
-Check `DATABASE_URL`. In Railway, use the database service's internal host. In Docker Compose, use `postgres`, not `localhost`.
-
-**pgvector migration fails**
-
-Ensure the production database supports `CREATE EXTENSION vector`. If not, switch to a pgvector-enabled PostgreSQL provider.
-
-**AI jobs stay pending**
-
-Check Redis connectivity and `REDIS_HOST`/`REDIS_PORT`. BullMQ requires Redis.
-
-**Browser CORS or Socket.IO connection errors**
-
-Check backend `CLIENT_URL`. It must exactly match the deployed frontend origin.
-
-**API returns unauthorized in production**
-
-Check Clerk keys, `CLERK_AUTHORIZED_PARTY`, and allowed domains in the Clerk dashboard.
-
-**Gemini calls fail**
-
-Check `GEMINI_API_KEY`, model names, billing/quota, and whether the Railway service has the variable in the production environment.
+Use the production Dockerfile or ensure production dependencies are installed in the runtime image before running `node dist/main.js`.
 
 ## Release Checklist
 
-Before promoting a deployment:
-
 - Vercel has all frontend environment variables.
-- Railway backend has all backend environment variables.
-- PostgreSQL has pgvector enabled.
-- Prisma migrations have run successfully.
+- Railway or the backend platform has all backend environment variables.
+- PostgreSQL supports pgvector and migrations have run.
 - Redis is reachable by the backend.
+- Prisma Client is generated during build.
 - `CLIENT_URL` matches the frontend origin.
-- Clerk authorized party and allowed domains match the deployed frontend.
-- `GET /health` on the backend returns OK.
+- Clerk authorized domains and authorized party are correct.
+- Gemini key and model names are valid.
+- `GET /health` returns OK.
+- Demo data is seeded only into demo or staging databases.
+- `pnpm eval:rag` has been run in staging after knowledge-base seed data is available.
