@@ -8,6 +8,11 @@ export interface AiSuggestionDTO {
   status: AiSuggestionStatus;
   summary?: string;
   suggestedReply?: string;
+  originalSuggestedReply?: string;
+  finalApprovedReply?: string;
+  approvedAt?: string;
+  approvedByUserId?: string;
+  editedBeforeApproval?: boolean;
   suggestedCategory?: TicketCategory;
   suggestedPriority?: TicketPriority;
   confidenceScore?: number;

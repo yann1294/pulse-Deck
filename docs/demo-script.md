@@ -1,16 +1,16 @@
-# Demo Script
+# PulseDesk Recruiter Demo Script
 
-This script is designed for a 3-5 minute recruiter or portfolio walkthrough. The goal is to show that PulseDesk is not just an AI prompt demo; it is a full-stack SaaS workflow with data modeling, background jobs, RAG, realtime updates, deployment structure, and explicit AI safety boundaries.
+This script is designed for a 3-5 minute screen-share demo. The goal is to show PulseDesk as a complete full-stack SaaS MVP: public ticket intake, authenticated support dashboard, AI/RAG workflow, ticket conversation, customer context, realtime updates, and clear AI safety boundaries.
 
 ## Pre-Demo Setup
 
-Start local services:
+Start local infrastructure:
 
 ```sh
 docker compose up -d postgres redis
 ```
 
-Run migrations and seed the demo workspace:
+Apply migrations and seed demo data:
 
 ```sh
 pnpm db:migrate
@@ -26,46 +26,31 @@ pnpm dev:client
 
 Optional: set `NEXT_PUBLIC_DEMO_MODE=true` in `client/.env.local` so the dashboard shows the Demo Workspace banner.
 
-## Demo Narrative
+## 0:00-0:30 - Landing Page
 
-Position PulseDesk as a support-operations SaaS MVP:
+Open `/`.
 
-"PulseDesk is an AI-assisted support desk. The important product decision is that AI helps triage and draft, but it does not automatically respond to customers. The project demonstrates a complete workflow: public ticket intake, authenticated dashboard, RAG-backed suggestions, background processing, realtime UI updates, Docker, CI, and deployment docs."
+Say:
 
-## 1. Landing Page
+"PulseDesk is an AI-assisted customer support desk that combines public ticket intake, an authenticated admin dashboard, RAG-grounded reply suggestions, and human-reviewed support workflows."
 
-Time: 30-45 seconds.
+Show:
 
-Open the landing page.
+- hero section and dashboard preview;
+- recruiter-facing stack highlights;
+- CTA to submit a ticket or open the dashboard.
 
-Talking points:
+Keep this brief. The landing page establishes the product and portfolio context; the real demo is the workflow.
 
-- "This is framed as a production-style SaaS portfolio project, not a generic AI chat app."
-- "The hero highlights the real engineering surface: full-stack SaaS, AI/RAG, pgvector, BullMQ, Docker, and CI/CD."
-- "The mock dashboard preview gives recruiters a fast sense of the product before signing in."
-- "The visual design uses graphite/zinc with emerald and teal accents, intentionally avoiding generic blue/purple AI dashboard styling."
+## 0:30-1:00 - Customer Ticket Submission
 
-What to show:
+Open `/submit-ticket`.
 
-- Hero copy and CTAs.
-- Mock dashboard preview.
-- Recruiter-facing technical value cards.
-- Stack section if time allows.
+Say:
 
-## 2. Submit Ticket
+"This is the public customer intake route. A customer can submit a ticket without dashboard access. The backend validates the DTO, upserts the customer, stores the ticket, and queues AI jobs for classification, prioritization, and reply suggestion."
 
-Time: 30-45 seconds.
-
-Open the public ticket submission page.
-
-Talking points:
-
-- "This route is public because customers need to submit support requests without admin access."
-- "The form does client-side validation and posts to the NestJS backend."
-- "On the backend, the DTO is validated, the customer is upserted, the ticket is created, and AI jobs are queued."
-- "The customer sees a confirmation, but AI does not send any reply directly."
-
-Suggested demo ticket:
+Submit a realistic ticket:
 
 ```text
 Name: Jordan Patel
@@ -75,146 +60,175 @@ Title: Monthly CSV export has been queued for over an hour
 Description: Our finance team needs the monthly CSV export today, but it has been queued for over an hour. We tried refreshing and starting a new export, but nothing completed.
 ```
 
-What to show:
+Point out:
 
-- Required fields.
-- Human-review note.
-- Success state after submission.
+- validation and confirmation state;
+- ticket creation is separate from AI processing;
+- no AI response is sent to the customer automatically.
 
-## 3. Admin Dashboard
+## 1:00-1:40 - Admin Dashboard
 
-Time: 45-60 seconds.
+Open `/dashboard`.
 
-Open the authenticated dashboard.
+Say:
 
-Talking points:
+"This is the support operator view. It shows operational KPIs, ticket volume, SLA pressure, AI status, and the current ticket queue. The dashboard uses TanStack Query for server state and Socket.IO to invalidate fresh data when background AI jobs complete."
 
-- "This is the support operator workspace."
-- "The dashboard uses TanStack Query for server state and Socket.IO for realtime invalidation."
-- "If the socket connection fails, polling remains active as a fallback."
-- "The table converts into mobile cards, so it stays usable on smaller screens."
-- "The demo workspace banner makes clear that fake recruiter-review data is being used."
+Show:
 
-What to show:
-
-- KPI cards.
-- Ticket filters.
-- Ticket list.
-- Live updates indicator.
+- KPI cards;
+- overdue and due-soon SLA indicators;
+- ticket filters;
+- AI status badges;
+- live updates indicator;
 - Demo Workspace banner if enabled.
 
-## 4. AI Suggestion
+Add:
 
-Time: 60-90 seconds.
+"The design is intentionally B2B SaaS: dense enough for operations work, responsive across devices, and using graphite/zinc surfaces with emerald, teal, amber, and rose status colors."
 
-Open a ticket detail page with an AI suggestion.
+## 1:40-2:05 - Tickets Section
 
-Talking points:
+Open `/dashboard/tickets`.
 
-- "The detail page combines ticket context, customer history, AI suggestion, and safety notes."
-- "The AI panel shows confidence, retrieved knowledge context, limitations, and a human-review gate."
-- "If no knowledge-base context is found, the UI shows a Needs manual verification badge."
-- "The button says Mark reviewed, not Send. Automatic customer sending is intentionally not part of the MVP."
+Say:
 
-Engineering points:
+"The Tickets section is the focused queue view. Support teams can filter by status, priority, category, and search terms, then open any ticket for the full workspace."
 
-- "Ticket AI jobs are handled by BullMQ workers."
-- "After classification, priority prediction, and suggestion generation, the backend emits realtime events."
-- "The frontend invalidates the relevant query cache and updates without a full page reload."
+Show:
 
-What to show:
+- filters;
+- desktop table;
+- SLA badges;
+- priority/category/status columns;
+- AI status.
 
-- Ticket description.
-- Customer panel.
-- AI confidence score.
-- Retrieved snippets.
-- Limitations.
-- Disabled send-to-customer action.
+If time allows, mention:
 
-## 5. Knowledge-Base Upload
+"On mobile this switches to card-based rows to avoid horizontal overflow."
 
-Time: 45-60 seconds.
+Open a ticket.
 
-Open the knowledge-base page.
+## 2:05-3:10 - Ticket Detail Workspace
 
-Talking points:
+Open `/dashboard/tickets/[id]`.
 
-- "Admins can upload PDF, TXT, or Markdown support documents."
-- "The backend extracts text, normalizes it, splits it into chunks, generates embeddings, and stores them in PostgreSQL with pgvector."
-- "When drafting a reply, PulseDesk retrieves semantically similar chunks and passes them as grounding context."
-- "pgvector was chosen for the MVP because it keeps relational data and vector search in one PostgreSQL system, which is simpler to operate than adding a dedicated vector database early."
+Say:
 
-What to show:
+"This page is the real support workspace. It combines ticket metadata, customer context, SLA state, conversation history, internal notes, and AI review in one place."
 
-- Upload area.
-- Accepted file types.
-- Recent ingestion state.
-- Ingested documents list.
-- Demo safety warning.
+Show:
 
-## 6. Safety Limitations
+- ticket title, status, priority, category, and SLA;
+- customer info and customer history;
+- conversation thread;
+- reply composer;
+- internal note composer.
 
-Time: 30-45 seconds.
+If there is an internal note:
 
-Talking points:
+"Internal notes are stored in the same conversation model but marked as internal, so the UI can separate private team context from customer-visible replies."
 
-- "PulseDesk treats AI as assistive, not authoritative."
-- "The UI exposes confidence, citations/snippets, and limitations instead of hiding uncertainty."
-- "The MVP does not perform automatic PII redaction, prompt-injection scanning, compliance-grade audit trails, or automatic customer sending."
-- "Those limitations are documented in `docs/ai-safety.md`, which is part of the portfolio presentation."
+## 3:10-4:05 - AI Suggestion Panel
 
-What to show:
+Stay on the ticket detail page.
 
-- AI safety panel on ticket detail.
-- Knowledge-base demo safety note.
-- `docs/ai-safety.md` if presenting code/docs.
+Say:
 
-## 7. DevOps And CI
+"The AI suggestion panel is deliberately human-in-the-loop. The model can summarize the issue, suggest a reply, and show the retrieved knowledge snippets that influenced it. But the admin has to review and approve the final text."
 
-Time: 30-45 seconds.
+Show:
 
-Talking points:
+- summary;
+- suggested reply textarea;
+- retrieved knowledge-base snippets;
+- confidence score;
+- limitations and manual verification badge if context is weak;
+- reset-to-draft control.
 
-- "The backend is Dockerized with a production runner stage."
-- "Docker Compose runs PostgreSQL pgvector, Redis, and optionally the NestJS server."
-- "GitHub Actions has separate client and server jobs."
-- "The server test suite covers chunking, AI JSON parsing, DTO validation, knowledge-base search with mocks, and queue enqueueing."
-- "Deployment docs cover Vercel frontend, Railway backend, pgvector, Redis, CORS, Clerk, and Gemini setup."
+Edit the reply slightly, then approve it.
 
-What to show:
+Say:
 
-- `docker-compose.yml`
-- `server/Dockerfile`
-- `.github/workflows/ci.yml`
-- `docs/deployment.md`
-- Test command:
+"When I approve this, PulseDesk stores the final approved reply and adds it to the ticket conversation as an admin message. It does not send an email in the MVP. If the text changed, the backend tracks that it was edited before approval."
 
-```sh
-pnpm lint
-pnpm build
-pnpm --filter @pulsedesk/server test
-```
+After approval, show:
+
+- approved or edited badge;
+- new conversation message;
+- explanation text that approval does not send email.
+
+## 4:05-4:35 - Customers Section
+
+Open `/dashboard/customers`, then open a customer detail page.
+
+Say:
+
+"The customer workspace gives support teams account context without leaving the dashboard. It shows profile details, ticket counts, recent ticket history, and an activity timeline derived from existing ticket, message, and AI suggestion records."
+
+Show:
+
+- customer search/list;
+- customer detail metrics;
+- recent tickets linking back to ticket detail;
+- activity timeline events such as ticket created, message added, AI suggestion generated, and AI reply approved.
+
+## 4:35-5:05 - Knowledge Base And RAG
+
+Open `/knowledge-base`.
+
+Say:
+
+"The knowledge base powers the RAG flow. Admins can upload support documents. The backend parses the file, normalizes the text, chunks it, generates Gemini embeddings, and stores vectors in PostgreSQL with pgvector. When AI drafts a reply, PulseDesk searches those vectors for relevant snippets and includes them as grounding context."
+
+Show:
+
+- existing demo FAQ or policy document;
+- upload area if you want to show ingestion;
+- document list and chunk counts.
+
+Add:
+
+"pgvector is a pragmatic MVP choice because it keeps relational ticket data and vector search in the same PostgreSQL system."
+
+## Architecture Summary
+
+Use this if the interviewer asks for the technical view, or as a 20-second close if time allows.
+
+Say:
+
+"The frontend is Next.js App Router with Clerk auth and TanStack Query. The backend is NestJS with Prisma over PostgreSQL and pgvector. Redis and BullMQ handle AI jobs for classify, prioritize, and suggest-reply. Gemini provides embeddings and structured generation. Socket.IO pushes ticket update events into the dashboard. Docker Compose runs the local stack, and CI has separate client and server jobs for lint, build, tests, Prisma generation, Postgres, and Redis."
+
+## AI Safety Summary
+
+Say:
+
+"The safety posture is intentionally conservative. RAG gives the model grounding, but it does not eliminate hallucinations. The UI shows snippets, confidence, limitations, and manual verification states. The admin must approve or edit every AI reply, and the MVP does not send customer emails automatically."
+
+If asked what is missing:
+
+"For production I would add stronger audit logs, prompt-injection scanning for uploaded documents, PII redaction, tenant isolation, role-based permissions, answer faithfulness scoring, and a larger retrieval and safety evaluation set."
 
 ## Strong Closing
 
-Use this closing if time is short:
+Use this closing if the demo needs a clear finish:
 
-"PulseDesk shows the kind of engineering I want to bring to production SaaS work: clear product boundaries, typed frontend and backend, durable data modeling, async processing, AI grounded in retrieved context, realtime UI updates, deployment planning, and an honest safety posture."
+"PulseDesk demonstrates the kind of production SaaS engineering I care about: typed frontend and backend, durable data modeling, background processing, realtime UX, RAG with pgvector, human-reviewed AI, deployment planning, and honest safety boundaries."
 
 ## Common Questions
 
 **Why not send AI replies automatically?**
 
-Because the product is designed for support teams handling real customer issues. The MVP prioritizes reviewed outcomes over automation.
+Because customer support replies can affect trust, billing, and operations. The MVP keeps AI assistive and requires human approval.
 
 **Why pgvector instead of a dedicated vector database?**
 
-For MVP scale, pgvector is simpler and keeps embeddings near the relational support data. It reduces operational overhead while still demonstrating real semantic retrieval.
+For MVP scale, pgvector keeps embeddings close to relational support data and avoids adding another infrastructure component too early.
 
 **What happens if AI fails?**
 
-The job records a failed suggestion state, the dashboard shows failed AI status, and the ticket remains available for manual handling.
+The ticket still exists. The backend records failed AI suggestion state where practical, and the support team can handle the ticket manually.
 
-**What would you improve next?**
+**How do you evaluate RAG quality?**
 
-Approval audit logs, richer reply editing, tenant isolation, prompt-injection scanning, PII redaction, observability, and retrieval quality evaluation.
+PulseDesk includes `pnpm eval:rag`, which checks top-1 and top-3 retrieval accuracy against a small support-question dataset. It is a retrieval sanity check, not a full answer-quality benchmark.
