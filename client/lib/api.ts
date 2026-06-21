@@ -139,6 +139,20 @@ export interface AdminTicketDetailDTO {
   aiSuggestions: AiSuggestionDTO[];
 }
 
+export type TicketMessageAuthorType = "customer" | "admin" | "ai" | "system";
+
+export interface TicketMessageDTO {
+  id: string;
+  ticketId: string;
+  authorType: TicketMessageAuthorType;
+  authorName?: string;
+  authorEmail?: string;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GenerateAiSuggestionResultDTO {
   ticket: TicketDTO;
   suggestion: AiSuggestionDTO & {
@@ -286,6 +300,38 @@ export async function getTicket(ticketId: string): Promise<AdminTicketDetailDTO>
     method: "GET",
     url: `/tickets/${encodeURIComponent(ticketId)}`
   });
+}
+
+export async function getTicketMessages(ticketId: string): Promise<TicketMessageDTO[]> {
+  return requestWithMessage<TicketMessageDTO[]>(
+    {
+      method: "GET",
+      url: `/tickets/${encodeURIComponent(ticketId)}/messages`
+    },
+    "Ticket conversation could not be loaded. Please retry in a moment."
+  );
+}
+
+export async function createTicketMessage(ticketId: string, body: string): Promise<TicketMessageDTO> {
+  return requestWithMessage<TicketMessageDTO>(
+    {
+      method: "POST",
+      url: `/tickets/${encodeURIComponent(ticketId)}/messages`,
+      data: { body }
+    },
+    "Reply could not be sent. Please try again."
+  );
+}
+
+export async function createInternalNote(ticketId: string, body: string): Promise<TicketMessageDTO> {
+  return requestWithMessage<TicketMessageDTO>(
+    {
+      method: "POST",
+      url: `/tickets/${encodeURIComponent(ticketId)}/internal-notes`,
+      data: { body }
+    },
+    "Internal note could not be saved. Please try again."
+  );
 }
 
 export async function updateTicketStatus(
