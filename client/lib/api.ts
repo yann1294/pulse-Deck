@@ -166,6 +166,12 @@ export interface GenerateAiSuggestionResultDTO {
   };
 }
 
+export interface ApproveAiSuggestionResultDTO {
+  suggestion: AiSuggestionDTO;
+  ticketMessage?: TicketMessageDTO;
+  internalNote?: TicketMessageDTO;
+}
+
 export interface KnowledgeUploadResultDTO {
   title: string;
   sourceName: string;
@@ -357,6 +363,21 @@ export async function generateAiSuggestion(
     method: "POST",
     url: `/tickets/${encodeURIComponent(ticketId)}/generate-ai-suggestion`
   });
+}
+
+export async function approveAiSuggestion(
+  ticketId: string,
+  suggestionId: string,
+  finalReply: string
+): Promise<ApproveAiSuggestionResultDTO> {
+  return requestWithMessage<ApproveAiSuggestionResultDTO>(
+    {
+      method: "POST",
+      url: `/tickets/${encodeURIComponent(ticketId)}/ai-suggestions/${encodeURIComponent(suggestionId)}/approve`,
+      data: { finalReply }
+    },
+    "AI suggestion could not be approved. Please retry in a moment."
+  );
 }
 
 export async function uploadKnowledgeDocument(input: {

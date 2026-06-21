@@ -17,6 +17,7 @@ import {
   Textarea
 } from "@/components/ui";
 import {
+  approveAiSuggestion,
   createInternalNote,
   createTicketMessage,
   generateAiSuggestion,
@@ -104,6 +105,23 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
       setInternalNoteBody("");
       setActionMessage("Internal note added.");
       await queryClient.invalidateQueries({ queryKey: ["ticket", ticketId, "messages"] });
+    }
+  });
+  const approveSuggestionMutation = useMutation({
+    mutationFn: ({ finalReply, suggestionId }: { finalReply: string; suggestionId: string }) =>
+      approveAiSuggestion(ticketId, suggestionId, finalReply.trim()),
+    onSuccess: async (result) => {
+      setActionMessage(
+        result.suggestion.editedBeforeApproval
+          ? "Edited AI reply approved and added to the conversation."
+          : "AI draft approved and added to the conversation."
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ticket", ticketId] }),
+        queryClient.invalidateQueries({ queryKey: ["ticket", ticketId, "messages"] }),
+        queryClient.invalidateQueries({ queryKey: ["tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ai-suggestions"] })
+      ]);
     }
   });
   const detail = ticketQuery.data;
@@ -218,6 +236,14 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
             />
           ) : null}
 
+          {approveSuggestionMutation.isError ? (
+            <ErrorState
+              className="mt-6"
+              error={approveSuggestionMutation.error}
+              title="Could not approve AI reply"
+            />
+          ) : null}
+
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_25rem]">
             <div className="space-y-6">
               <TicketContextPanel
@@ -254,8 +280,11 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
               />
             </div>
             <AiSuggestionPanel
-              onApprove={() => setActionMessage("Suggestion marked reviewed. Customer sending remains disabled in this MVP.")}
-              onEdit={() => setActionMessage("Edit suggestion placeholder. Rich editor comes next.")}
+              isApproving={approveSuggestionMutation.isPending}
+              key={latestSuggestion?.id ?? "empty-ai-suggestion"}
+              onApprove={(suggestionId, finalReply) => {
+                approveSuggestionMutation.mutate({ suggestionId, finalReply });
+              }}
               suggestion={latestSuggestion}
             />
           </div>
@@ -577,12 +606,12 @@ function getMessageMeta(message: TicketMessageDTO): {
 
 function AiSuggestionPanel({
   suggestion,
+  isApproving,
   onApprove,
-  onEdit
 }: {
   suggestion?: AiSuggestionDTO;
-  onApprove: () => void;
-  onEdit: () => void;
+  isApproving: boolean;
+  onApprove: (suggestionId: string, finalReply: string) => void;
 }) {
   const context = getRetrievedContext(suggestion);
   const snippets = getRetrievedSnippets(suggestion, context);
@@ -591,6 +620,20 @@ function AiSuggestionPanel({
   const safetyTone = getSuggestionSafetyTone(suggestion, limitations.needsManualVerification);
   const confidence = getConfidenceDisplay(suggestion?.confidenceScore);
   const reviewRequired = context?.reply?.humanReviewRequired !== false;
+  const aiDraft = getSuggestionDraft(suggestion);
+  const savedApprovedReply = suggestion?.finalApprovedReply?.trim() ?? "";
+  const [finalReply, setFinalReply] = useState(savedApprovedReply || aiDraft);
+  const finalReplyTrimmed = finalReply.trim();
+  const aiDraftTrimmed = aiDraft.trim();
+  const isEditedDraft = Boolean(suggestion && finalReplyTrimmed && aiDraftTrimmed && finalReplyTrimmed !== aiDraftTrimmed);
+  const isAlreadyApprovedCurrentReply = Boolean(savedApprovedReply && finalReplyTrimmed === savedApprovedReply);
+  const canApprove = Boolean(
+    suggestion &&
+      suggestion.status !== "failed" &&
+      aiDraftTrimmed &&
+      finalReplyTrimmed &&
+      !isAlreadyApprovedCurrentReply
+  );
 
   return (
     <aside className="space-y-4">
@@ -617,6 +660,15 @@ function AiSuggestionPanel({
               ) : (
                 <SafetyTag tone="teal">Grounded draft</SafetyTag>
               )}
+              {suggestion?.finalApprovedReply ? (
+                suggestion.editedBeforeApproval ? (
+                  <SafetyTag tone="amber">Edited before approval</SafetyTag>
+                ) : (
+                  <SafetyTag tone="emerald">Approved AI draft</SafetyTag>
+                )
+              ) : isEditedDraft ? (
+                <SafetyTag tone="amber">Edited before approval</SafetyTag>
+              ) : null}
             </div>
             <h2 className="mt-4 text-xl font-semibold text-white">AI assistant</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
@@ -654,11 +706,11 @@ function AiSuggestionPanel({
             <div>
               <h3 className="text-sm font-semibold text-amber-100">Human review required</h3>
               <p className="mt-1 text-sm leading-6 text-amber-100/85">
-                PulseDesk can draft a response, but this MVP does not send AI replies to customers.
+                Approving adds the reply to the ticket conversation. It does not send an email in this demo.
               </p>
             </div>
             <Badge className="w-fit shrink-0 whitespace-nowrap" tone="amber">
-              Send disabled
+              Email disabled
             </Badge>
           </div>
         </div>
@@ -670,10 +722,58 @@ function AiSuggestionPanel({
             </p>
           </PanelBlock>
 
-          <PanelBlock title="Suggested reply">
-            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">
-              {suggestion?.suggestedReply ?? "Generate an AI suggestion to draft a reply."}
-            </p>
+          <PanelBlock title="Reply approval">
+            <label className="block">
+              <span className="text-sm font-medium text-zinc-300">Final reply</span>
+              <Textarea
+                className="mt-3 min-h-64"
+                disabled={!suggestion || suggestion.status === "failed"}
+                onChange={(event) => setFinalReply(event.target.value)}
+                placeholder="Generate an AI suggestion to draft a reply."
+                value={finalReply}
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                disabled={!aiDraftTrimmed || isApproving}
+                onClick={() => setFinalReply(aiDraft)}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Reset to AI draft
+              </Button>
+              <Button
+                disabled={!canApprove || isEditedDraft || isApproving}
+                onClick={() => {
+                  if (suggestion) {
+                    onApprove(suggestion.id, finalReply);
+                  }
+                }}
+                size="sm"
+                type="button"
+              >
+                {isApproving ? "Approving..." : "Approve reply"}
+              </Button>
+              <Button
+                disabled={!canApprove || !isEditedDraft || isApproving}
+                onClick={() => {
+                  if (suggestion) {
+                    onApprove(suggestion.id, finalReply);
+                  }
+                }}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                {isApproving ? "Saving..." : "Save as edited approval"}
+              </Button>
+            </div>
+            {isAlreadyApprovedCurrentReply ? (
+              <p className="mt-3 text-xs leading-5 text-emerald-100">
+                This approved reply is already saved in the conversation.
+              </p>
+            ) : null}
           </PanelBlock>
 
           <PanelBlock title="Limitations">
@@ -695,16 +795,8 @@ function AiSuggestionPanel({
           </PanelBlock>
         </div>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-          <Button disabled={!suggestion || suggestion.status === "failed"} onClick={onApprove} type="button">
-            Mark reviewed
-          </Button>
-          <Button disabled={!suggestion} onClick={onEdit} type="button" variant="secondary">
-            Edit draft
-          </Button>
-          <Button className="sm:col-span-2 xl:col-span-1" disabled type="button" variant="secondary">
-            Send to customer unavailable
-          </Button>
+        <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-sm leading-6 text-zinc-400">
+          Review and approve the final reply here. Customer email sending remains intentionally unavailable in this MVP.
         </div>
       </Card>
 
@@ -826,6 +918,10 @@ function getLatestSuggestion(
   generatedSuggestion?: AiSuggestionDTO
 ): AiSuggestionDTO | undefined {
   return generatedSuggestion ?? suggestions[0];
+}
+
+function getSuggestionDraft(suggestion: AiSuggestionDTO | undefined): string {
+  return suggestion?.originalSuggestedReply ?? suggestion?.suggestedReply ?? "";
 }
 
 function getRetrievedContext(suggestion: AiSuggestionDTO | undefined): RetrievedContext | undefined {
