@@ -31,6 +31,7 @@ import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledg
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
 import { RealtimeService } from "../realtime/realtime.service";
+import { calculateTicketSla } from "../sla/sla.util";
 import type { ApproveAiSuggestionDto } from "./dto/approve-ai-suggestion.dto";
 import type { CreateInternalNoteDto } from "./dto/create-internal-note.dto";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
@@ -747,6 +748,10 @@ export class TicketsService {
       customerId: ticket.customerId,
       ...("customer" in ticket ? { customer: this.toCustomerDto(ticket.customer) } : {}),
       ...(latestAiSuggestion ? { latestAiSuggestion } : {}),
+      sla: calculateTicketSla({
+        createdAt: ticket.createdAt,
+        priority: ticket.priority
+      }),
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString()
     };

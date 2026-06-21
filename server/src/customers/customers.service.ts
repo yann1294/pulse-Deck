@@ -5,9 +5,11 @@ import type {
   PaginatedResponse,
   TicketCategory as ApiTicketCategory,
   TicketPriority as ApiTicketPriority,
+  TicketSlaDTO,
   TicketStatus as ApiTicketStatus
 } from "@pulsedesk/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { calculateTicketSla } from "../sla/sla.util";
 import type { ListCustomersQueryDto } from "./dto/list-customers-query.dto";
 
 export interface CustomerListItemDTO {
@@ -30,6 +32,7 @@ export interface CustomerTicketHistoryItemDTO {
   priority: ApiTicketPriority;
   category: ApiTicketCategory;
   createdAt: string;
+  sla: TicketSlaDTO;
   latestAiSuggestionStatus?: ApiAiSuggestionStatus;
 }
 
@@ -204,6 +207,10 @@ export class CustomersService {
         priority: toApiPriority(ticket.priority),
         category: toApiCategory(ticket.category),
         createdAt: ticket.createdAt.toISOString(),
+        sla: calculateTicketSla({
+          createdAt: ticket.createdAt,
+          priority: ticket.priority
+        }),
         ...(ticket.aiSuggestions[0]
           ? { latestAiSuggestionStatus: toApiAiSuggestionStatus(ticket.aiSuggestions[0].status) }
           : {})
