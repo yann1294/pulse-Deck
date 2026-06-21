@@ -4,6 +4,7 @@ import {
   AiSuggestionStatus,
   PrismaClient,
   TicketCategory,
+  TicketMessageAuthorType,
   TicketPriority,
   TicketStatus,
   UserRole
@@ -315,6 +316,12 @@ const suggestions = [
     confidenceScore: 0.89,
     suggestedReply:
       "Thanks for reaching out. The higher invoice is likely due to prorated charges from the Starter-to-Growth upgrade. Upgrades apply immediately, and the invoice includes the remaining billing period at the new plan rate minus unused time from the previous plan. If you share the workspace name and invoice month, I can help confirm the calculation.",
+    originalSuggestedReply:
+      "Thanks for reaching out. The higher invoice is likely due to prorated charges from the Starter-to-Growth upgrade. Upgrades apply immediately, and the invoice includes the remaining billing period at the new plan rate minus unused time from the previous plan. If you share the workspace name and invoice month, I can help confirm the calculation.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_billing_plan_changes",
@@ -327,12 +334,19 @@ const suggestions = [
     id: "demo_suggestion_mfa_reset",
     ticketId: "demo_ticket_login_mfa_reset",
     knowledgeDocumentId: "demo_kb_login_mfa",
-    status: AiSuggestionStatus.GENERATED,
+    status: AiSuggestionStatus.APPROVED,
     suggestedCategory: TicketCategory.ACCOUNT,
     suggestedPriority: TicketPriority.HIGH,
     confidenceScore: 0.86,
     suggestedReply:
       "We can help reset MFA after verifying the request through an account owner or workspace admin. Please have the affected user try a backup code first. If that is not available, an admin can reset MFA from the team member profile after confirming the user's identity. We will never ask for one-time passwords or backup codes.",
+    originalSuggestedReply:
+      "We can help reset MFA after verifying the request through an account owner or workspace admin. Please have the affected user try a backup code first. If that is not available, an admin can reset MFA from the team member profile after confirming the user's identity. We will never ask for one-time passwords or backup codes.",
+    finalApprovedReply:
+      "We can help reset MFA after verifying the request through an account owner or workspace admin. Please have the affected user try a backup code first. If that is not available, an admin can reset MFA from the team member profile after confirming the user's identity. We will never ask for one-time passwords or backup codes.",
+    approvedAt: new Date("2026-06-17T10:45:00.000Z"),
+    approvedByUserId: "demo_admin_user",
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_login_mfa",
@@ -345,12 +359,19 @@ const suggestions = [
     id: "demo_suggestion_security_sessions",
     ticketId: "demo_ticket_security_sessions",
     knowledgeDocumentId: "demo_kb_security",
-    status: AiSuggestionStatus.GENERATED,
+    status: AiSuggestionStatus.EDITED,
     suggestedCategory: TicketCategory.ACCOUNT,
     suggestedPriority: TicketPriority.URGENT,
     confidenceScore: 0.93,
     suggestedReply:
       "This should be treated as urgent. Please rotate the affected user's password, review active sessions, enable or confirm MFA, and rotate any API keys that may have been exposed. We can help revoke active sessions after identity verification, and we should avoid sharing tokens or sensitive logs in this ticket.",
+    originalSuggestedReply:
+      "This should be treated as urgent. Please rotate the affected user's password, review active sessions, enable or confirm MFA, and rotate any API keys that may have been exposed. We can help revoke active sessions after identity verification, and we should avoid sharing tokens or sensitive logs in this ticket.",
+    finalApprovedReply:
+      "Thanks for flagging this. Please rotate the affected user's password, confirm MFA is enabled, review active sessions, and rotate any API keys that could have been exposed. We can revoke active sessions after identity verification. Please avoid posting tokens, API keys, or sensitive logs in this ticket.",
+    approvedAt: new Date("2026-06-17T12:20:00.000Z"),
+    approvedByUserId: "demo_admin_user",
+    editedBeforeApproval: true,
     ragSnippets: [
       {
         documentId: "demo_kb_security",
@@ -369,6 +390,12 @@ const suggestions = [
     confidenceScore: 0.82,
     suggestedReply:
       "Thanks for the detailed logs. PulseDesk expects webhook endpoints to return a 2xx response within ten seconds without redirects. If your endpoint logs show 200 responses, please also check response timing, signing-secret validation, and whether an upstream proxy is returning a redirect or timeout before the final 200.",
+    originalSuggestedReply:
+      "Thanks for the detailed logs. PulseDesk expects webhook endpoints to return a 2xx response within ten seconds without redirects. If your endpoint logs show 200 responses, please also check response timing, signing-secret validation, and whether an upstream proxy is returning a redirect or timeout before the final 200.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_api_webhooks",
@@ -387,6 +414,12 @@ const suggestions = [
     confidenceScore: 0.78,
     suggestedReply:
       "A 14 MB PDF is below the 25 MB upload limit, so this may be browser, network, or PDF-processing related. Please confirm the browser version, whether the upload succeeds in an incognito window, and whether the PDF contains selectable text. If it still fails, we should capture the file metadata and escalate as an upload bug.",
+    originalSuggestedReply:
+      "A 14 MB PDF is below the 25 MB upload limit, so this may be browser, network, or PDF-processing related. Please confirm the browser version, whether the upload succeeds in an incognito window, and whether the PDF contains selectable text. If it still fails, we should capture the file metadata and escalate as an upload bug.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_uploads",
@@ -405,6 +438,12 @@ const suggestions = [
     confidenceScore: 0.81,
     suggestedReply:
       "Large ticket exports are processed asynchronously and emailed when ready. Since this export has been queued for more than thirty minutes, please share the workspace name and export date range so we can check the queued job and retry it if needed.",
+    originalSuggestedReply:
+      "Large ticket exports are processed asynchronously and emailed when ready. Since this export has been queued for more than thirty minutes, please share the workspace name and export date range so we can check the queued job and retry it if needed.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_exports",
@@ -423,6 +462,12 @@ const suggestions = [
     confidenceScore: 0.74,
     suggestedReply:
       "API keys are created by workspace admins from Developer Settings and should be stored in a secrets manager. I can confirm the current key options for your workspace and help identify the safest integration path for a reporting tool.",
+    originalSuggestedReply:
+      "API keys are created by workspace admins from Developer Settings and should be stored in a secrets manager. I can confirm the current key options for your workspace and help identify the safest integration path for a reporting tool.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_api_webhooks",
@@ -430,6 +475,195 @@ const suggestions = [
         excerpt: "API keys are created by workspace admins from Developer Settings. Keys are shown once and should be stored in a secrets manager."
       }
     ]
+  }
+];
+
+const ticketMessages = [
+  {
+    id: "demo_message_billing_proration_customer_1",
+    ticketId: "demo_ticket_billing_proration",
+    authorType: TicketMessageAuthorType.CUSTOMER,
+    authorName: "Maya Chen",
+    authorEmail: "maya.chen@northstarcommerce.example",
+    body:
+      "We upgraded from Starter to Growth this morning and the invoice total looks higher than expected. Can you confirm whether this includes proration for the current billing cycle?",
+    createdAt: new Date("2026-06-18T09:20:00.000Z"),
+    updatedAt: new Date("2026-06-18T09:20:00.000Z")
+  },
+  {
+    id: "demo_message_billing_proration_ai_1",
+    ticketId: "demo_ticket_billing_proration",
+    authorType: TicketMessageAuthorType.AI,
+    authorName: "PulseDesk AI",
+    body:
+      "Draft prepared: explain immediate plan upgrades and prorated charges, then ask for workspace name and invoice month before confirming exact totals.",
+    isInternal: true,
+    createdAt: new Date("2026-06-18T09:22:00.000Z"),
+    updatedAt: new Date("2026-06-18T09:22:00.000Z")
+  },
+  {
+    id: "demo_message_billing_proration_admin_1",
+    ticketId: "demo_ticket_billing_proration",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "Thanks, Maya. Upgrades apply immediately, so the invoice can include prorated charges for the remaining billing period. Please send the workspace name and invoice month and I can verify the line items.",
+    createdAt: new Date("2026-06-18T09:27:00.000Z"),
+    updatedAt: new Date("2026-06-18T09:27:00.000Z")
+  },
+  {
+    id: "demo_message_mfa_customer_1",
+    ticketId: "demo_ticket_login_mfa_reset",
+    authorType: TicketMessageAuthorType.CUSTOMER,
+    authorName: "Jordan Patel",
+    authorEmail: "jordan.patel@apexanalytics.example",
+    body:
+      "One of our analysts replaced their phone and cannot complete MFA. They still have access to company email. What is the safest reset process?",
+    createdAt: new Date("2026-06-18T10:10:00.000Z"),
+    updatedAt: new Date("2026-06-18T10:10:00.000Z")
+  },
+  {
+    id: "demo_message_mfa_admin_internal_1",
+    ticketId: "demo_ticket_login_mfa_reset",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "Internal note: verify the request through an account owner before resetting MFA. Do not ask the user to share backup codes or one-time passwords.",
+    isInternal: true,
+    createdAt: new Date("2026-06-18T10:14:00.000Z"),
+    updatedAt: new Date("2026-06-18T10:14:00.000Z")
+  },
+  {
+    id: "demo_message_mfa_admin_1",
+    ticketId: "demo_ticket_login_mfa_reset",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "Please have the analyst try a backup code first. If that is unavailable, a workspace admin can reset MFA from the team member profile after confirming the user's identity.",
+    createdAt: new Date("2026-06-18T10:18:00.000Z"),
+    updatedAt: new Date("2026-06-18T10:18:00.000Z")
+  },
+  {
+    id: "demo_message_webhook_customer_1",
+    ticketId: "demo_ticket_webhook_retries",
+    authorType: TicketMessageAuthorType.CUSTOMER,
+    authorName: "Elena Rodriguez",
+    authorEmail: "elena.rodriguez@riverlinehealth.example",
+    body:
+      "Our endpoint logs show 200 responses, but PulseDesk still marks several webhook deliveries as retrying. We need help understanding what headers or timing requirements might be missing.",
+    createdAt: new Date("2026-06-18T11:05:00.000Z"),
+    updatedAt: new Date("2026-06-18T11:05:00.000Z")
+  },
+  {
+    id: "demo_message_webhook_system_1",
+    ticketId: "demo_ticket_webhook_retries",
+    authorType: TicketMessageAuthorType.SYSTEM,
+    authorName: "PulseDesk",
+    body: "Ticket priority changed from MEDIUM to HIGH after AI prioritization found delivery reliability impact.",
+    isInternal: true,
+    createdAt: new Date("2026-06-18T11:06:00.000Z"),
+    updatedAt: new Date("2026-06-18T11:06:00.000Z")
+  },
+  {
+    id: "demo_message_webhook_admin_1",
+    ticketId: "demo_ticket_webhook_retries",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "Thanks for the logs. Please confirm whether the endpoint responds within ten seconds and whether any proxy or redirect sits in front of the final 200 response.",
+    createdAt: new Date("2026-06-18T11:12:00.000Z"),
+    updatedAt: new Date("2026-06-18T11:12:00.000Z")
+  },
+  {
+    id: "demo_message_security_customer_1",
+    ticketId: "demo_ticket_security_sessions",
+    authorType: TicketMessageAuthorType.CUSTOMER,
+    authorName: "Elena Rodriguez",
+    authorEmail: "elena.rodriguez@riverlinehealth.example",
+    body:
+      "We noticed an admin login from an unexpected location and want to revoke active sessions, rotate API keys, and confirm the account is secure.",
+    createdAt: new Date("2026-06-18T12:40:00.000Z"),
+    updatedAt: new Date("2026-06-18T12:40:00.000Z")
+  },
+  {
+    id: "demo_message_security_ai_1",
+    ticketId: "demo_ticket_security_sessions",
+    authorType: TicketMessageAuthorType.AI,
+    authorName: "PulseDesk AI",
+    body:
+      "High-risk account security request. Recommend password rotation, session review, MFA confirmation, API key rotation, and escalation to on-call admin queue.",
+    isInternal: true,
+    createdAt: new Date("2026-06-18T12:41:00.000Z"),
+    updatedAt: new Date("2026-06-18T12:41:00.000Z")
+  },
+  {
+    id: "demo_message_security_admin_1",
+    ticketId: "demo_ticket_security_sessions",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "We are treating this as urgent. Please rotate the affected password, confirm MFA is enabled, and rotate API keys. I can help revoke active sessions after identity verification.",
+    createdAt: new Date("2026-06-18T12:45:00.000Z"),
+    updatedAt: new Date("2026-06-18T12:45:00.000Z")
+  },
+  {
+    id: "demo_message_export_customer_1",
+    ticketId: "demo_ticket_export_timeout",
+    authorType: TicketMessageAuthorType.CUSTOMER,
+    authorName: "Jordan Patel",
+    authorEmail: "jordan.patel@apexanalytics.example",
+    body:
+      "Our compliance team needs the May ticket export today, but the CSV export has been queued for more than an hour. The workspace has about 18,000 tickets.",
+    createdAt: new Date("2026-06-18T13:05:00.000Z"),
+    updatedAt: new Date("2026-06-18T13:05:00.000Z")
+  },
+  {
+    id: "demo_message_export_admin_1",
+    ticketId: "demo_ticket_export_timeout",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "Large exports are processed asynchronously. Please send the workspace name and export date range so I can check the queued job and retry it if needed.",
+    createdAt: new Date("2026-06-18T13:12:00.000Z"),
+    updatedAt: new Date("2026-06-18T13:12:00.000Z")
+  },
+  {
+    id: "demo_message_login_link_customer_1",
+    ticketId: "demo_ticket_login_link_expired",
+    authorType: TicketMessageAuthorType.CUSTOMER,
+    authorName: "Elena Rodriguez",
+    authorEmail: "elena.rodriguez@riverlinehealth.example",
+    body:
+      "A remote team member says the email link is expired by the time they open it. They are using the correct email address and workspace URL.",
+    createdAt: new Date("2026-06-17T14:30:00.000Z"),
+    updatedAt: new Date("2026-06-17T14:30:00.000Z")
+  },
+  {
+    id: "demo_message_login_link_admin_1",
+    ticketId: "demo_ticket_login_link_expired",
+    authorType: TicketMessageAuthorType.ADMIN,
+    authorName: "Avery Brooks",
+    authorEmail: "admin@pulsedesk.dev",
+    body:
+      "Passwordless sign-in links expire after ten minutes. Ask the user to request a fresh link and open it from the same browser session.",
+    createdAt: new Date("2026-06-17T14:44:00.000Z"),
+    updatedAt: new Date("2026-06-17T14:44:00.000Z")
+  },
+  {
+    id: "demo_message_login_link_system_1",
+    ticketId: "demo_ticket_login_link_expired",
+    authorType: TicketMessageAuthorType.SYSTEM,
+    authorName: "PulseDesk",
+    body: "Ticket marked resolved after the customer confirmed the new sign-in link worked.",
+    isInternal: true,
+    createdAt: new Date("2026-06-17T15:30:00.000Z"),
+    updatedAt: new Date("2026-06-17T15:30:00.000Z")
   }
 ];
 
@@ -471,17 +705,26 @@ async function seed(): Promise<void> {
       update: suggestion
     });
   }
+
+  for (const message of ticketMessages) {
+    await prisma.ticketMessage.upsert({
+      where: { id: message.id },
+      create: message,
+      update: message
+    });
+  }
 }
 
 seed()
   .then(async () => {
-    const [userCount, customerCount, ticketCount, documentCount, suggestionCount] =
+    const [userCount, customerCount, ticketCount, documentCount, suggestionCount, messageCount] =
       await Promise.all([
         prisma.user.count(),
         prisma.customer.count(),
         prisma.ticket.count(),
         prisma.knowledgeDocument.count(),
-        prisma.ticketAiSuggestion.count()
+        prisma.ticketAiSuggestion.count(),
+        prisma.ticketMessage.count()
       ]);
 
     console.info(isDemoMode ? "Demo seed complete" : "Seed complete", {
@@ -490,7 +733,8 @@ seed()
       customers: customerCount,
       tickets: ticketCount,
       knowledgeDocuments: documentCount,
-      aiSuggestions: suggestionCount
+      aiSuggestions: suggestionCount,
+      ticketMessages: messageCount
     });
   })
   .catch((error: unknown) => {

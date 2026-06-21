@@ -28,6 +28,9 @@ export default defineConfig({
   ],
   webServer: {
     command: "pnpm dev",
+    env: {
+      PLAYWRIGHT_MOCK_AUTH: "true"
+    },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000

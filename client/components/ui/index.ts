@@ -9,5 +9,6 @@ export { PageHeader } from "./PageHeader";
 export { PriorityBadge } from "./PriorityBadge";
 export { SectionCard } from "./SectionCard";
 export { Select } from "./Select";
+export { SlaBadge } from "./SlaBadge";
 export { StatusBadge } from "./StatusBadge";
 export { Textarea } from "./Textarea";

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { NavItem } from "@/types/navigation";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -16,7 +17,7 @@ export function Sidebar({ items, activeHref, className }: SidebarProps) {
         className
       )}
     >
-      <Link className="focus-ring flex items-center gap-3 rounded-2xl px-2 py-1" href="/">
+      <Link className="focus-ring flex items-center gap-3 rounded-2xl px-2 py-1" href={routes.home()}>
         <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 text-sm font-black text-zinc-950">
           P
         </span>

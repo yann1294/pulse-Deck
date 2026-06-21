@@ -252,6 +252,7 @@ export class TicketAiProcessor extends WorkerHost {
           ticketId: ticket.id,
           status: AiSuggestionStatus.GENERATED,
           suggestedReply: reply.replyDraft,
+          originalSuggestedReply: reply.replyDraft,
           suggestedCategory: ticket.category,
           suggestedPriority: ticket.priority,
           confidenceScore: reply.confidence,

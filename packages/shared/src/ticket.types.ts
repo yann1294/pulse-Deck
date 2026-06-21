@@ -19,6 +19,14 @@ export type TicketCategory =
 
 export type TicketAiStatus = "PENDING" | "GENERATED" | "APPROVED" | "EDITED" | "FAILED";
 
+export type TicketSlaStatus = "ON_TRACK" | "DUE_SOON" | "OVERDUE";
+
+export interface TicketSlaDTO {
+  dueAt: string;
+  minutesRemaining: number;
+  status: TicketSlaStatus;
+}
+
 export interface TicketDTO {
   id: string;
   subject: string;
@@ -32,6 +40,7 @@ export interface TicketDTO {
   aiStatus?: TicketAiStatus;
   latestAiSuggestion?: AiSuggestionSummaryDTO;
   aiSuggestions?: AiSuggestionDTO[];
+  sla?: TicketSlaDTO;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,6 +49,11 @@ export interface AiSuggestionSummaryDTO {
   id: string;
   status: AiSuggestionStatus;
   suggestedReply?: string;
+  originalSuggestedReply?: string;
+  finalApprovedReply?: string;
+  approvedAt?: string;
+  approvedByUserId?: string;
+  editedBeforeApproval?: boolean;
   confidenceScore?: number;
   createdAt: string;
 }

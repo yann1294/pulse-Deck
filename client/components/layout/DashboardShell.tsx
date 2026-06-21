@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
 import type { NavItem } from "@/types/navigation";
+import { routes } from "@/lib/routes";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 const defaultItems: NavItem[] = [
-  { label: "Overview", href: "/dashboard" },
-  { label: "Tickets", href: "/dashboard/tickets" },
-  { label: "Customers", href: "/dashboard/customers" },
-  { label: "Knowledge Base", href: "/knowledge-base" },
-  { label: "AI Suggestions", href: "/dashboard/ai" }
+  { label: "Overview", href: routes.dashboard() },
+  { label: "Tickets", href: routes.tickets() },
+  { label: "Customers", href: routes.customers() },
+  { label: "Knowledge Base", href: routes.knowledgeBase() },
+  { label: "AI Suggestions", href: routes.aiSuggestions() }
 ];
 
 interface DashboardShellProps {
@@ -20,7 +21,7 @@ interface DashboardShellProps {
 
 export function DashboardShell({
   children,
-  activeHref = "/dashboard",
+  activeHref = routes.dashboard(),
   navItems = defaultItems,
   title
 }: DashboardShellProps) {

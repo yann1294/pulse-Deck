@@ -21,9 +21,11 @@ import {
   LoadingSkeleton,
   PriorityBadge,
   Select,
+  SlaBadge,
   StatusBadge
 } from "@/components/ui";
 import { listTickets, type ListTicketsParams } from "@/lib/api";
+import { routes } from "@/lib/routes";
 import { useTicketRealtime } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +59,15 @@ const categories: Array<{ label: string; value: FilterValue<TicketCategory> }> =
 
 const isDemoWorkspace = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  activeHref?: string;
+  title?: string;
+}
+
+export function AdminDashboard({
+  activeHref = routes.dashboard(),
+  title = "PulseDesk dashboard"
+}: AdminDashboardProps) {
   const router = useRouter();
   const [status, setStatus] = useState<FilterValue<TicketStatus>>("all");
   const [priority, setPriority] = useState<FilterValue<TicketPriority>>("all");
@@ -98,7 +108,7 @@ export function AdminDashboard() {
   }
 
   return (
-    <DashboardShell activeHref="/dashboard" title="PulseDesk dashboard">
+    <DashboardShell activeHref={activeHref} title={title}>
       <PageHeader
         actions={
           <>
@@ -196,7 +206,7 @@ export function AdminDashboard() {
           />
         ) : (
           <TicketResults
-            onOpenTicket={(ticketId) => router.push(`/dashboard/tickets/${ticketId}`)}
+            onOpenTicket={(ticketId) => router.push(routes.ticketDetail(ticketId))}
             tickets={tickets}
           />
         )}
@@ -334,6 +344,7 @@ function TicketResults({
               <th className="px-4 py-3 font-semibold" scope="col">Status</th>
               <th className="px-4 py-3 font-semibold" scope="col">Priority</th>
               <th className="px-4 py-3 font-semibold" scope="col">Category</th>
+              <th className="px-4 py-3 font-semibold" scope="col">SLA</th>
               <th className="px-4 py-3 font-semibold" scope="col">AI status</th>
               <th className="px-4 py-3 font-semibold" scope="col">Created</th>
             </tr>
@@ -370,6 +381,9 @@ function TicketResults({
                 </td>
                 <td className="px-4 py-4">
                   <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+                </td>
+                <td className="px-4 py-4">
+                  <SlaBadge sla={ticket.sla} />
                 </td>
                 <td className="px-4 py-4">
                   <AiStatusIndicator status={getAiStatus(ticket)} />
@@ -409,6 +423,7 @@ function TicketResults({
               <StatusBadge status={ticket.status} />
               <PriorityBadge priority={ticket.priority} />
               <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+              <SlaBadge sla={ticket.sla} />
             </div>
           </button>
         ))}
@@ -488,15 +503,15 @@ function getDashboardKpis(tickets: TicketDTO[]): KpiCardProps[] {
       tone: "rose"
     },
     {
-      label: "AI suggestions ready",
-      value: tickets.filter((ticket) => getAiStatus(ticket) === "generated").length,
-      helper: "Drafts ready for human approval",
-      tone: "teal"
+      label: "Overdue tickets",
+      value: tickets.filter((ticket) => ticket.sla?.status === "OVERDUE").length,
+      helper: "Past first response SLA",
+      tone: "rose"
     },
     {
-      label: "Resolved tickets",
-      value: tickets.filter((ticket) => ticket.status === "resolved").length,
-      helper: "Closed support requests",
+      label: "Due soon tickets",
+      value: tickets.filter((ticket) => ticket.sla?.status === "DUE_SOON").length,
+      helper: "Needs response before SLA breach",
       tone: "amber"
     }
   ];

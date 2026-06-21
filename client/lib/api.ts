@@ -1,6 +1,7 @@
 import axios, { type AxiosRequestConfig } from "axios";
 import type {
   AiSuggestionDTO,
+  AiSuggestionStatus,
   CustomerDTO,
   PaginatedResponse,
   TicketCategory,
@@ -8,7 +9,7 @@ import type {
   TicketPriority,
   TicketStatus
 } from "@pulsedesk/shared";
-import { toApiClientError } from "./api-errors";
+import { ApiClientError, isApiClientError, toApiClientError } from "./api-errors";
 
 type TokenProvider = () => Promise<string | null>;
 
@@ -51,11 +52,131 @@ export interface ListTicketsParams {
   limit?: number;
 }
 
+export interface AiSuggestionListItemDTO {
+  id: string;
+  ticketId: string;
+  ticketTitle: string;
+  customerName?: string;
+  customerEmail?: string;
+  summary?: string;
+  status: AiSuggestionStatus;
+  model?: string;
+  confidence?: number;
+  confidenceScore?: number;
+  priority?: TicketPriority;
+  category?: TicketCategory;
+  suggestedReply?: string;
+  originalSuggestedReply?: string;
+  finalApprovedReply?: string;
+  approvedAt?: string;
+  approvedByUserId?: string;
+  editedBeforeApproval?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListAiSuggestionsParams {
+  status?: AiSuggestionStatus;
+  minConfidence?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface CustomerListItemDTO {
+  id: string;
+  name: string;
+  email: string;
+  companyName?: string;
+  ticketCount: number;
+  openTicketCount?: number;
+  latestTicketAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerDetailDTO extends CustomerListItemDTO {
+  resolvedTicketCount: number;
+  tickets: TicketDTO[];
+}
+
+export type CustomerTimelineEventType =
+  | "CUSTOMER_CREATED"
+  | "TICKET_CREATED"
+  | "TICKET_UPDATED"
+  | "AI_SUGGESTION_GENERATED"
+  | "AI_REPLY_APPROVED"
+  | "MESSAGE_ADDED"
+  | "INTERNAL_NOTE_ADDED"
+  | "TICKET_RESOLVED";
+
+export interface CustomerTimelineEventDTO {
+  id: string;
+  type: CustomerTimelineEventType;
+  title: string;
+  description: string;
+  timestamp: string;
+  ticketId?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
+interface CustomerApiListItemDTO {
+  id: string;
+  name: string;
+  email: string;
+  company?: string;
+  companyName?: string;
+  createdAt: string;
+  ticketCount: number;
+  openTicketCount: number;
+  resolvedTicketCount?: number;
+  latestTicketAt?: string;
+}
+
+interface CustomerApiDetailDTO {
+  customer: CustomerApiListItemDTO;
+  metrics: {
+    totalTickets: number;
+    openTickets: number;
+    resolvedTickets: number;
+  };
+  recentTickets: Array<{
+    id: string;
+    title: string;
+    status: TicketStatus;
+    priority: TicketPriority;
+    category: TicketCategory;
+    createdAt: string;
+    sla?: TicketDTO["sla"];
+    latestAiSuggestionStatus?: AiSuggestionStatus;
+  }>;
+}
+
+export interface ListCustomersParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface AdminTicketDetailDTO {
   ticket: TicketDTO;
   customer: CustomerDTO;
   customerHistory: TicketDTO[];
   aiSuggestions: AiSuggestionDTO[];
+}
+
+export type TicketMessageAuthorType = "customer" | "admin" | "ai" | "system";
+
+export interface TicketMessageDTO {
+  id: string;
+  ticketId: string;
+  authorType: TicketMessageAuthorType;
+  authorName?: string;
+  authorEmail?: string;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GenerateAiSuggestionResultDTO {
@@ -64,6 +185,12 @@ export interface GenerateAiSuggestionResultDTO {
     summary?: string;
     retrievedContext?: unknown;
   };
+}
+
+export interface ApproveAiSuggestionResultDTO {
+  suggestion: AiSuggestionDTO;
+  ticketMessage?: TicketMessageDTO;
+  internalNote?: TicketMessageDTO;
 }
 
 export interface KnowledgeUploadResultDTO {
@@ -99,11 +226,155 @@ export async function listTickets(
   });
 }
 
+export async function listAiSuggestions(
+  params: ListAiSuggestionsParams = {}
+): Promise<PaginatedResponse<AiSuggestionListItemDTO>> {
+  const response = await requestWithMessage<PaginatedResponse<AiSuggestionListItemDTO>>(
+    {
+      method: "GET",
+      url: "/ai-suggestions",
+      params: {
+        status: params.status,
+        search: params.search,
+        page: params.page,
+        limit: params.limit
+      }
+    },
+    "AI suggestions could not be loaded. Please retry in a moment."
+  );
+
+  if (typeof params.minConfidence !== "number") {
+    return response;
+  }
+
+  const filteredSuggestions = response.data.filter((suggestion) => {
+    const confidence = suggestion.confidenceScore ?? suggestion.confidence;
+
+    return typeof confidence === "number" && confidence >= params.minConfidence!;
+  });
+
+  return {
+    ...response,
+    data: filteredSuggestions,
+    totalItems: filteredSuggestions.length,
+    totalPages: filteredSuggestions.length > 0 ? 1 : 0
+  };
+}
+
+export async function listCustomers(
+  params: ListCustomersParams = {}
+): Promise<PaginatedResponse<CustomerListItemDTO>> {
+  const response = await requestWithMessage<PaginatedResponse<CustomerApiListItemDTO>>(
+    {
+      method: "GET",
+      url: "/customers",
+      params
+    },
+    "Customers could not be loaded. Please retry in a moment."
+  );
+
+  return {
+    ...response,
+    data: response.data.map(toCustomerListItem)
+  };
+}
+
+export async function getCustomer(customerId: string): Promise<CustomerDetailDTO | null> {
+  let response: CustomerApiDetailDTO;
+
+  try {
+    response = await requestWithMessage<CustomerApiDetailDTO>(
+      {
+        method: "GET",
+        url: `/customers/${encodeURIComponent(customerId)}`
+      },
+      "Customer details could not be loaded. Please retry in a moment."
+    );
+  } catch (error: unknown) {
+    if (isApiClientError(error) && error.statusCode === 404) {
+      return null;
+    }
+
+    throw error;
+  }
+  const customer = toCustomerListItem(response.customer);
+
+  return {
+    ...customer,
+    ticketCount: response.metrics.totalTickets,
+    openTicketCount: response.metrics.openTickets,
+    resolvedTicketCount: response.metrics.resolvedTickets,
+    tickets: response.recentTickets.map((ticket) => ({
+      id: ticket.id,
+      subject: ticket.title,
+      description: "",
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category,
+      customerId,
+      ...(ticket.sla ? { sla: ticket.sla } : {}),
+      ...(ticket.latestAiSuggestionStatus
+        ? {
+            latestAiSuggestion: {
+              id: `${ticket.id}-latest-ai-suggestion`,
+              status: ticket.latestAiSuggestionStatus,
+              createdAt: ticket.createdAt
+            }
+          }
+        : {}),
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.createdAt
+    }))
+  };
+}
+
+export async function getCustomerTimeline(customerId: string): Promise<CustomerTimelineEventDTO[]> {
+  return requestWithMessage<CustomerTimelineEventDTO[]>(
+    {
+      method: "GET",
+      url: `/customers/${encodeURIComponent(customerId)}/timeline`
+    },
+    "Customer activity timeline could not be loaded. Please retry in a moment."
+  );
+}
+
 export async function getTicket(ticketId: string): Promise<AdminTicketDetailDTO> {
   return request<AdminTicketDetailDTO>({
     method: "GET",
     url: `/tickets/${encodeURIComponent(ticketId)}`
   });
+}
+
+export async function getTicketMessages(ticketId: string): Promise<TicketMessageDTO[]> {
+  return requestWithMessage<TicketMessageDTO[]>(
+    {
+      method: "GET",
+      url: `/tickets/${encodeURIComponent(ticketId)}/messages`
+    },
+    "Ticket conversation could not be loaded. Please retry in a moment."
+  );
+}
+
+export async function createTicketMessage(ticketId: string, body: string): Promise<TicketMessageDTO> {
+  return requestWithMessage<TicketMessageDTO>(
+    {
+      method: "POST",
+      url: `/tickets/${encodeURIComponent(ticketId)}/messages`,
+      data: { body }
+    },
+    "Reply could not be sent. Please try again."
+  );
+}
+
+export async function createInternalNote(ticketId: string, body: string): Promise<TicketMessageDTO> {
+  return requestWithMessage<TicketMessageDTO>(
+    {
+      method: "POST",
+      url: `/tickets/${encodeURIComponent(ticketId)}/internal-notes`,
+      data: { body }
+    },
+    "Internal note could not be saved. Please try again."
+  );
 }
 
 export async function updateTicketStatus(
@@ -124,6 +395,21 @@ export async function generateAiSuggestion(
     method: "POST",
     url: `/tickets/${encodeURIComponent(ticketId)}/generate-ai-suggestion`
   });
+}
+
+export async function approveAiSuggestion(
+  ticketId: string,
+  suggestionId: string,
+  finalReply: string
+): Promise<ApproveAiSuggestionResultDTO> {
+  return requestWithMessage<ApproveAiSuggestionResultDTO>(
+    {
+      method: "POST",
+      url: `/tickets/${encodeURIComponent(ticketId)}/ai-suggestions/${encodeURIComponent(suggestionId)}/approve`,
+      data: { finalReply }
+    },
+    "AI suggestion could not be approved. Please retry in a moment."
+  );
 }
 
 export async function uploadKnowledgeDocument(input: {
@@ -158,4 +444,38 @@ async function request<T>(config: AxiosRequestConfig): Promise<T> {
   } catch (error: unknown) {
     throw toApiClientError(error);
   }
+}
+
+async function requestWithMessage<T>(config: AxiosRequestConfig, message: string): Promise<T> {
+  try {
+    return await request<T>(config);
+  } catch (error: unknown) {
+    const apiError = toApiClientError(error);
+
+    if (apiError.statusCode === 401 || apiError.statusCode === 403 || apiError.statusCode === 404) {
+      throw apiError;
+    }
+
+    throw new ApiClientError(message, {
+      statusCode: apiError.statusCode,
+      requestId: apiError.requestId
+    });
+  }
+}
+
+function toCustomerListItem(customer: CustomerApiListItemDTO): CustomerListItemDTO {
+  return {
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    ...(customer.companyName ?? customer.company ? { companyName: customer.companyName ?? customer.company } : {}),
+    ticketCount: customer.ticketCount,
+    openTicketCount: customer.openTicketCount,
+    ...(typeof customer.resolvedTicketCount === "number"
+      ? { resolvedTicketCount: customer.resolvedTicketCount }
+      : {}),
+    ...(customer.latestTicketAt ? { latestTicketAt: customer.latestTicketAt } : {}),
+    createdAt: customer.createdAt,
+    updatedAt: customer.latestTicketAt ?? customer.createdAt
+  };
 }

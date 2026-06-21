@@ -13,9 +13,21 @@ import {
   ErrorState,
   LoadingSkeleton,
   PriorityBadge,
-  StatusBadge
+  SlaBadge,
+  StatusBadge,
+  Textarea
 } from "@/components/ui";
-import { generateAiSuggestion, getTicket, updateTicketStatus } from "@/lib/api";
+import {
+  approveAiSuggestion,
+  createInternalNote,
+  createTicketMessage,
+  generateAiSuggestion,
+  getTicket,
+  getTicketMessages,
+  updateTicketStatus,
+  type TicketMessageDTO
+} from "@/lib/api";
+import { routes } from "@/lib/routes";
 import { useTicketRealtime } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
@@ -46,11 +58,19 @@ interface RetrievedContext {
 export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) {
   const queryClient = useQueryClient();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [internalNoteBody, setInternalNoteBody] = useState("");
   const realtime = useTicketRealtime(ticketId);
   const ticketQuery = useQuery({
     queryKey: ["ticket", ticketId],
     queryFn: () => getTicket(ticketId),
     refetchInterval: realtime.pollingFallbackInterval
+  });
+  const messagesQuery = useQuery({
+    queryKey: ["ticket", ticketId, "messages"],
+    queryFn: () => getTicketMessages(ticketId),
+    refetchInterval: realtime.pollingFallbackInterval,
+    enabled: Boolean(ticketQuery.data?.ticket)
   });
   const generateMutation = useMutation({
     mutationFn: () => generateAiSuggestion(ticketId),
@@ -72,6 +92,39 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
       ]);
     }
   });
+  const replyMutation = useMutation({
+    mutationFn: () => createTicketMessage(ticketId, replyBody.trim()),
+    onSuccess: async () => {
+      setReplyBody("");
+      setActionMessage("Reply added to the conversation.");
+      await queryClient.invalidateQueries({ queryKey: ["ticket", ticketId, "messages"] });
+    }
+  });
+  const internalNoteMutation = useMutation({
+    mutationFn: () => createInternalNote(ticketId, internalNoteBody.trim()),
+    onSuccess: async () => {
+      setInternalNoteBody("");
+      setActionMessage("Internal note added.");
+      await queryClient.invalidateQueries({ queryKey: ["ticket", ticketId, "messages"] });
+    }
+  });
+  const approveSuggestionMutation = useMutation({
+    mutationFn: ({ finalReply, suggestionId }: { finalReply: string; suggestionId: string }) =>
+      approveAiSuggestion(ticketId, suggestionId, finalReply.trim()),
+    onSuccess: async (result) => {
+      setActionMessage(
+        result.suggestion.editedBeforeApproval
+          ? "Edited AI reply approved and added to the conversation."
+          : "AI draft approved and added to the conversation."
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ticket", ticketId] }),
+        queryClient.invalidateQueries({ queryKey: ["ticket", ticketId, "messages"] }),
+        queryClient.invalidateQueries({ queryKey: ["tickets"] }),
+        queryClient.invalidateQueries({ queryKey: ["ai-suggestions"] })
+      ]);
+    }
+  });
   const detail = ticketQuery.data;
   const ticket = detail?.ticket;
   const latestSuggestion = useMemo(
@@ -80,7 +133,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
   );
 
   return (
-    <DashboardShell activeHref="/dashboard/tickets" title="Ticket detail">
+    <DashboardShell activeHref={routes.tickets()} title="Ticket detail">
       {ticketQuery.isLoading ? (
         <TicketDetailSkeleton />
       ) : ticketQuery.isError ? (
@@ -93,7 +146,7 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
       ) : !detail || !ticket ? (
         <EmptyState
           action={
-            <ButtonLink href="/dashboard" variant="secondary">
+            <ButtonLink href={routes.dashboard()} variant="secondary">
               Back to dashboard
             </ButtonLink>
           }
@@ -164,17 +217,75 @@ export function TicketDetailWorkspace({ ticketId }: TicketDetailWorkspaceProps) 
             />
           ) : null}
 
+          {replyMutation.isError ? (
+            <ErrorState
+              className="mt-6"
+              actionLabel="Retry"
+              error={replyMutation.error}
+              onAction={() => replyMutation.mutate()}
+              title="Could not send reply"
+            />
+          ) : null}
+
+          {internalNoteMutation.isError ? (
+            <ErrorState
+              className="mt-6"
+              actionLabel="Retry"
+              error={internalNoteMutation.error}
+              onAction={() => internalNoteMutation.mutate()}
+              title="Could not add internal note"
+            />
+          ) : null}
+
+          {approveSuggestionMutation.isError ? (
+            <ErrorState
+              className="mt-6"
+              error={approveSuggestionMutation.error}
+              title="Could not approve AI reply"
+            />
+          ) : null}
+
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_25rem]">
             <div className="space-y-6">
-              <TicketOverview ticket={ticket} />
-              <CustomerPanel
+              <TicketContextPanel
                 customer={detail.customer}
                 history={detail.customerHistory}
+                ticket={ticket}
+              />
+              <ConversationPanel
+                internalNoteBody={internalNoteBody}
+                internalNotePending={internalNoteMutation.isPending}
+                messages={messagesQuery.data ?? []}
+                onAddInternalNote={() => {
+                  if (internalNoteBody.trim()) {
+                    internalNoteMutation.mutate();
+                  }
+                }}
+                onRefetchMessages={() => void messagesQuery.refetch()}
+                onReplyBodyChange={setReplyBody}
+                onInternalNoteBodyChange={setInternalNoteBody}
+                onSendReply={() => {
+                  if (replyBody.trim()) {
+                    replyMutation.mutate();
+                  }
+                }}
+                replyBody={replyBody}
+                replyPending={replyMutation.isPending}
+                state={
+                  messagesQuery.isLoading || messagesQuery.isPending
+                    ? "loading"
+                    : messagesQuery.isError
+                      ? "error"
+                      : "ready"
+                }
               />
             </div>
             <AiSuggestionPanel
-              onApprove={() => setActionMessage("Suggestion marked reviewed. Customer sending remains disabled in this MVP.")}
-              onEdit={() => setActionMessage("Edit suggestion placeholder. Rich editor comes next.")}
+              isApproving={approveSuggestionMutation.isPending}
+              key={latestSuggestion?.id ?? "empty-ai-suggestion"}
+              onApprove={(suggestionId, finalReply) => {
+                approveSuggestionMutation.mutate({ suggestionId, finalReply });
+              }}
               suggestion={latestSuggestion}
             />
           </div>
@@ -221,62 +332,64 @@ function RealtimeNotice({
   );
 }
 
-function TicketOverview({ ticket }: { ticket: NonNullable<Awaited<ReturnType<typeof getTicket>>["ticket"]> }) {
-  return (
-    <Card className="p-5 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Ticket details</h2>
-          <p className="mt-1 text-sm text-zinc-400">Created {formatDate(ticket.createdAt)}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusBadge status={ticket.status} />
-          <PriorityBadge priority={ticket.priority} />
-          <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
-        </div>
-      </div>
-      <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-        <p className="whitespace-pre-wrap break-words text-sm leading-7 text-zinc-200">{ticket.description}</p>
-      </div>
-    </Card>
-  );
-}
-
-function CustomerPanel({
+function TicketContextPanel({
+  ticket,
   customer,
   history
 }: {
+  ticket: NonNullable<Awaited<ReturnType<typeof getTicket>>["ticket"]>;
   customer: Awaited<ReturnType<typeof getTicket>>["customer"];
   history: Awaited<ReturnType<typeof getTicket>>["customerHistory"];
 }) {
   return (
     <Card className="p-5 sm:p-6">
-      <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Customer</h2>
-          <div className="mt-4 space-y-3 text-sm">
-            <InfoRow label="Name" value={customer.name} />
-            <InfoRow label="Email" value={customer.email} />
-            <InfoRow label="Company" value={customer.companyName ?? "Not provided"} />
-            <InfoRow label="Total tickets" value={String(customer.ticketCount)} />
+          <h2 className="text-lg font-semibold text-white">Conversation context</h2>
+          <p className="mt-1 text-sm text-zinc-400">
+            {customer.name} - {customer.companyName ?? "No company provided"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <StatusBadge status={ticket.status} />
+          <PriorityBadge priority={ticket.priority} />
+          <Badge tone="neutral">{formatCategory(ticket.category)}</Badge>
+          <SlaBadge sla={ticket.sla} />
+        </div>
+      </div>
+      <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+        <p className="whitespace-pre-wrap break-words text-sm leading-7 text-zinc-200">{ticket.description}</p>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
+        <div className="space-y-3 text-sm">
+          <InfoRow label="Customer" value={customer.name} />
+          <InfoRow label="Email" value={customer.email} />
+          <InfoRow label="Created" value={formatDate(ticket.createdAt)} />
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">SLA</p>
+            <div className="mt-2">
+              <SlaBadge showDueAt sla={ticket.sla} />
+            </div>
           </div>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-zinc-200">Previous tickets</h3>
           <div className="mt-3 space-y-3">
             {history.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-sm leading-6 text-zinc-400">
-                No previous tickets for this customer. Use the current ticket details and AI panel to continue triage.
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-sm leading-6 text-zinc-400">
+                No previous tickets for this customer.
               </div>
             ) : (
-              history.map((ticket) => (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4" key={ticket.id}>
+              history.map((historyTicket) => (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4" key={historyTicket.id}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">{ticket.subject}</p>
-                      <p className="mt-1 text-xs text-zinc-400">{formatDate(ticket.createdAt)}</p>
+                      <p className="line-clamp-2 break-words text-sm font-semibold text-zinc-100">
+                        {historyTicket.subject}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400">{formatDate(historyTicket.createdAt)}</p>
                     </div>
-                    <StatusBadge status={ticket.status} />
+                    <StatusBadge status={historyTicket.status} />
                   </div>
                 </div>
               ))
@@ -288,14 +401,225 @@ function CustomerPanel({
   );
 }
 
+function ConversationPanel({
+  messages,
+  state,
+  replyBody,
+  internalNoteBody,
+  replyPending,
+  internalNotePending,
+  onReplyBodyChange,
+  onInternalNoteBodyChange,
+  onSendReply,
+  onAddInternalNote,
+  onRefetchMessages
+}: {
+  messages: TicketMessageDTO[];
+  state: "loading" | "error" | "ready";
+  replyBody: string;
+  internalNoteBody: string;
+  replyPending: boolean;
+  internalNotePending: boolean;
+  onReplyBodyChange: (value: string) => void;
+  onInternalNoteBodyChange: (value: string) => void;
+  onSendReply: () => void;
+  onAddInternalNote: () => void;
+  onRefetchMessages: () => void;
+}) {
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Conversation</h2>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">
+            Customer-visible replies and internal notes stay together in chronological order.
+          </p>
+        </div>
+        <Badge tone="teal">{messages.length} messages</Badge>
+      </div>
+
+      <div className="mt-6">
+        {state === "loading" ? (
+          <LoadingSkeleton label="Loading conversation" rows={5} />
+        ) : state === "error" ? (
+          <ErrorState
+            actionLabel="Retry"
+            onAction={onRefetchMessages}
+            title="Could not load conversation"
+            message="Ticket messages could not be loaded. Please retry in a moment."
+          />
+        ) : messages.length === 0 ? (
+          <EmptyState
+            description="Replies and internal notes will appear here once the team starts the conversation."
+            title="No conversation messages yet"
+          />
+        ) : (
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <ConversationMessage key={message.id} message={message} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <ComposerCard
+          buttonLabel={replyPending ? "Sending..." : "Send reply"}
+          disabled={replyPending || !replyBody.trim()}
+          label="Reply"
+          onChange={onReplyBodyChange}
+          onSubmit={onSendReply}
+          placeholder="Write a customer-visible reply..."
+          tone="reply"
+          value={replyBody}
+        />
+        <ComposerCard
+          buttonLabel={internalNotePending ? "Saving..." : "Add internal note"}
+          disabled={internalNotePending || !internalNoteBody.trim()}
+          label="Internal note"
+          onChange={onInternalNoteBodyChange}
+          onSubmit={onAddInternalNote}
+          placeholder="Add private context for the support team..."
+          tone="note"
+          value={internalNoteBody}
+        />
+      </div>
+    </Card>
+  );
+}
+
+function ConversationMessage({ message }: { message: TicketMessageDTO }) {
+  const meta = getMessageMeta(message);
+
+  return (
+    <article className={cn("rounded-2xl border p-4", meta.containerClass)}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="w-fit shrink-0 whitespace-nowrap" tone={meta.badgeTone}>
+              {meta.label}
+            </Badge>
+            {message.isInternal ? <Badge tone="amber">Internal note</Badge> : null}
+          </div>
+          <p className="mt-2 text-sm font-semibold text-zinc-100">
+            {message.authorName ?? meta.fallbackAuthor}
+          </p>
+          {message.authorEmail ? (
+            <p className="mt-1 break-all text-xs text-zinc-500">{message.authorEmail}</p>
+          ) : null}
+        </div>
+        <time className="shrink-0 text-xs text-zinc-500" dateTime={message.createdAt}>
+          {formatDate(message.createdAt)}
+        </time>
+      </div>
+      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-zinc-200">{message.body}</p>
+    </article>
+  );
+}
+
+function ComposerCard({
+  label,
+  value,
+  placeholder,
+  buttonLabel,
+  disabled,
+  tone,
+  onChange,
+  onSubmit
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  buttonLabel: string;
+  disabled: boolean;
+  tone: "reply" | "note";
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-4",
+        tone === "note"
+          ? "border-amber-400/20 bg-amber-400/10"
+          : "border-zinc-800 bg-zinc-950/70"
+      )}
+    >
+      <label className="block">
+        <span className={cn("text-sm font-semibold", tone === "note" ? "text-amber-100" : "text-zinc-100")}>
+          {label}
+        </span>
+        <Textarea
+          className="mt-3 min-h-28"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          value={value}
+        />
+      </label>
+      <div className="mt-3 flex justify-end">
+        <Button disabled={disabled} onClick={onSubmit} type="button" variant={tone === "note" ? "secondary" : "primary"}>
+          {buttonLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getMessageMeta(message: TicketMessageDTO): {
+  label: string;
+  fallbackAuthor: string;
+  badgeTone: "neutral" | "emerald" | "teal" | "amber" | "rose";
+  containerClass: string;
+} {
+  if (message.isInternal) {
+    return {
+      label: "Internal",
+      fallbackAuthor: "Support team",
+      badgeTone: "amber",
+      containerClass: "border-amber-400/20 bg-amber-400/10"
+    };
+  }
+
+  switch (message.authorType) {
+    case "customer":
+      return {
+        label: "Customer",
+        fallbackAuthor: "Customer",
+        badgeTone: "neutral",
+        containerClass: "border-zinc-800 bg-zinc-950/80"
+      };
+    case "admin":
+      return {
+        label: "Admin",
+        fallbackAuthor: "Support admin",
+        badgeTone: "teal",
+        containerClass: "border-teal-400/20 bg-teal-400/10"
+      };
+    case "ai":
+      return {
+        label: "AI",
+        fallbackAuthor: "PulseDesk AI",
+        badgeTone: "emerald",
+        containerClass: "border-emerald-400/20 bg-emerald-400/10"
+      };
+    case "system":
+      return {
+        label: "System",
+        fallbackAuthor: "PulseDesk",
+        badgeTone: "teal",
+        containerClass: "border-teal-400/20 bg-zinc-950/80"
+      };
+  }
+}
+
 function AiSuggestionPanel({
   suggestion,
+  isApproving,
   onApprove,
-  onEdit
 }: {
   suggestion?: AiSuggestionDTO;
-  onApprove: () => void;
-  onEdit: () => void;
+  isApproving: boolean;
+  onApprove: (suggestionId: string, finalReply: string) => void;
 }) {
   const context = getRetrievedContext(suggestion);
   const snippets = getRetrievedSnippets(suggestion, context);
@@ -304,6 +628,20 @@ function AiSuggestionPanel({
   const safetyTone = getSuggestionSafetyTone(suggestion, limitations.needsManualVerification);
   const confidence = getConfidenceDisplay(suggestion?.confidenceScore);
   const reviewRequired = context?.reply?.humanReviewRequired !== false;
+  const aiDraft = getSuggestionDraft(suggestion);
+  const savedApprovedReply = suggestion?.finalApprovedReply?.trim() ?? "";
+  const [finalReply, setFinalReply] = useState(savedApprovedReply || aiDraft);
+  const finalReplyTrimmed = finalReply.trim();
+  const aiDraftTrimmed = aiDraft.trim();
+  const isEditedDraft = Boolean(suggestion && finalReplyTrimmed && aiDraftTrimmed && finalReplyTrimmed !== aiDraftTrimmed);
+  const isAlreadyApprovedCurrentReply = Boolean(savedApprovedReply && finalReplyTrimmed === savedApprovedReply);
+  const canApprove = Boolean(
+    suggestion &&
+      suggestion.status !== "failed" &&
+      aiDraftTrimmed &&
+      finalReplyTrimmed &&
+      !isAlreadyApprovedCurrentReply
+  );
 
   return (
     <aside className="space-y-4">
@@ -317,26 +655,37 @@ function AiSuggestionPanel({
               : "border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 to-zinc-950"
         )}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
-              <Badge tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
+              <SafetyTag tone={suggestion?.status === "failed" ? "rose" : suggestion ? "emerald" : "amber"}>
                 {suggestion ? formatAiStatus(suggestion.status) : "Needs review"}
-              </Badge>
+              </SafetyTag>
               {limitations.needsManualVerification ? (
-                <Badge tone={suggestion?.status === "failed" ? "rose" : "amber"}>
+                <SafetyTag tone={suggestion?.status === "failed" ? "rose" : "amber"}>
                   Needs manual verification
-                </Badge>
+                </SafetyTag>
               ) : (
-                <Badge tone="teal">Grounded draft</Badge>
+                <SafetyTag tone="teal">Grounded draft</SafetyTag>
               )}
+              {suggestion?.finalApprovedReply ? (
+                suggestion.editedBeforeApproval ? (
+                  <SafetyTag tone="amber">Edited before approval</SafetyTag>
+                ) : (
+                  <SafetyTag tone="emerald">Approved AI draft</SafetyTag>
+                )
+              ) : isEditedDraft ? (
+                <SafetyTag tone="amber">Edited before approval</SafetyTag>
+              ) : null}
             </div>
             <h2 className="mt-4 text-xl font-semibold text-white">AI assistant</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               AI-generated draft. Human review is required before any customer response.
             </p>
           </div>
-          <Badge tone={reviewRequired ? "amber" : "rose"}>Human review required</Badge>
+          <Badge className="w-fit shrink-0 whitespace-nowrap" tone={reviewRequired ? "amber" : "rose"}>
+            Human review required
+          </Badge>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -361,14 +710,16 @@ function AiSuggestionPanel({
         </div>
 
         <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-amber-100">Human review required</h3>
               <p className="mt-1 text-sm leading-6 text-amber-100/85">
-                PulseDesk can draft a response, but this MVP does not send AI replies to customers.
+                Approving adds the reply to the ticket conversation. It does not send an email in this demo.
               </p>
             </div>
-            <Badge tone="amber">Send disabled</Badge>
+            <Badge className="w-fit shrink-0 whitespace-nowrap" tone="amber">
+              Email disabled
+            </Badge>
           </div>
         </div>
 
@@ -379,10 +730,58 @@ function AiSuggestionPanel({
             </p>
           </PanelBlock>
 
-          <PanelBlock title="Suggested reply">
-            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">
-              {suggestion?.suggestedReply ?? "Generate an AI suggestion to draft a reply."}
-            </p>
+          <PanelBlock title="Reply approval">
+            <label className="block">
+              <span className="text-sm font-medium text-zinc-300">Final reply</span>
+              <Textarea
+                className="mt-3 min-h-64"
+                disabled={!suggestion || suggestion.status === "failed"}
+                onChange={(event) => setFinalReply(event.target.value)}
+                placeholder="Generate an AI suggestion to draft a reply."
+                value={finalReply}
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                disabled={!aiDraftTrimmed || isApproving}
+                onClick={() => setFinalReply(aiDraft)}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Reset to AI draft
+              </Button>
+              <Button
+                disabled={!canApprove || isEditedDraft || isApproving}
+                onClick={() => {
+                  if (suggestion) {
+                    onApprove(suggestion.id, finalReply);
+                  }
+                }}
+                size="sm"
+                type="button"
+              >
+                {isApproving ? "Approving..." : "Approve reply"}
+              </Button>
+              <Button
+                disabled={!canApprove || !isEditedDraft || isApproving}
+                onClick={() => {
+                  if (suggestion) {
+                    onApprove(suggestion.id, finalReply);
+                  }
+                }}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                {isApproving ? "Saving..." : "Save as edited approval"}
+              </Button>
+            </div>
+            {isAlreadyApprovedCurrentReply ? (
+              <p className="mt-3 text-xs leading-5 text-emerald-100">
+                This approved reply is already saved in the conversation.
+              </p>
+            ) : null}
           </PanelBlock>
 
           <PanelBlock title="Limitations">
@@ -404,23 +803,15 @@ function AiSuggestionPanel({
           </PanelBlock>
         </div>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-          <Button disabled={!suggestion || suggestion.status === "failed"} onClick={onApprove} type="button">
-            Mark reviewed
-          </Button>
-          <Button disabled={!suggestion} onClick={onEdit} type="button" variant="secondary">
-            Edit draft
-          </Button>
-          <Button className="sm:col-span-2 xl:col-span-1" disabled type="button" variant="secondary">
-            Send to customer unavailable
-          </Button>
+        <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-sm leading-6 text-zinc-400">
+          Review and approve the final reply here. Customer email sending remains intentionally unavailable in this MVP.
         </div>
       </Card>
 
       <Card className="p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-white">Retrieved knowledge</h3>
-          <Badge tone={snippets.length > 0 ? "teal" : "amber"}>
+          <Badge className="w-fit shrink-0 whitespace-nowrap" tone={snippets.length > 0 ? "teal" : "amber"}>
             {snippets.length > 0 ? `${snippets.length} snippets` : "Needs manual verification"}
           </Badge>
         </div>
@@ -455,6 +846,20 @@ function AiSuggestionPanel({
         </div>
       </Card>
     </aside>
+  );
+}
+
+function SafetyTag({
+  children,
+  tone
+}: {
+  children: React.ReactNode;
+  tone: "emerald" | "teal" | "amber" | "rose" | "neutral";
+}) {
+  return (
+    <Badge className="w-fit max-w-none shrink-0 justify-center whitespace-nowrap px-3" tone={tone}>
+      <span className="leading-none">{children}</span>
+    </Badge>
   );
 }
 
@@ -511,7 +916,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">{label}</p>
-          <p className="mt-1 break-all text-zinc-200">{value}</p>
+      <p className="mt-1 break-all text-zinc-200">{value}</p>
     </div>
   );
 }
@@ -521,6 +926,10 @@ function getLatestSuggestion(
   generatedSuggestion?: AiSuggestionDTO
 ): AiSuggestionDTO | undefined {
   return generatedSuggestion ?? suggestions[0];
+}
+
+function getSuggestionDraft(suggestion: AiSuggestionDTO | undefined): string {
+  return suggestion?.originalSuggestedReply ?? suggestion?.suggestedReply ?? "";
 }
 
 function getRetrievedContext(suggestion: AiSuggestionDTO | undefined): RetrievedContext | undefined {

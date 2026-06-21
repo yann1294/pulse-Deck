@@ -1,8 +1,15 @@
-import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import {
   AiSuggestionStatus,
   Prisma,
   TicketCategory,
+  TicketMessageAuthorType,
   TicketPriority,
   TicketStatus
 } from "@prisma/client";
@@ -19,11 +26,16 @@ import { AiService } from "../ai/ai.service";
 import { buildClassifyTicketPrompt } from "../ai/prompts/classify-ticket.prompt";
 import { buildPrioritizeTicketPrompt } from "../ai/prompts/prioritize-ticket.prompt";
 import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
+import type { AuthenticatedUser } from "../auth/auth.types";
 import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
 import { RealtimeService } from "../realtime/realtime.service";
+import { calculateTicketSla } from "../sla/sla.util";
+import type { ApproveAiSuggestionDto } from "./dto/approve-ai-suggestion.dto";
+import type { CreateInternalNoteDto } from "./dto/create-internal-note.dto";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
+import type { CreateTicketMessageDto, TicketMessageAuthorTypeParam } from "./dto/create-ticket-message.dto";
 import type {
   ListTicketsQueryDto,
   TicketCategoryParam,
@@ -96,6 +108,26 @@ export interface GenerateAiSuggestionResultDTO {
     summary?: string;
     retrievedContext?: Prisma.JsonValue;
   };
+}
+
+export interface ApproveAiSuggestionResultDTO {
+  suggestion: AiSuggestionDTO;
+  ticketMessage?: TicketMessageDTO;
+  internalNote?: TicketMessageDTO;
+}
+
+export type TicketMessageAuthorTypeDTO = "customer" | "admin" | "ai" | "system";
+
+export interface TicketMessageDTO {
+  id: string;
+  ticketId: string;
+  authorType: TicketMessageAuthorTypeDTO;
+  authorName?: string;
+  authorEmail?: string;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface TicketWithCustomerForAi {
@@ -283,6 +315,55 @@ export class TicketsService {
     return this.toTicketDetailDto(ticket);
   }
 
+  async listTicketMessages(ticketId: string): Promise<TicketMessageDTO[]> {
+    await this.ensureTicketExists(ticketId);
+
+    const messages = await this.prisma.ticketMessage.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" }
+    });
+
+    return messages.map((message) => this.toTicketMessageDto(message));
+  }
+
+  async createTicketMessage(
+    ticketId: string,
+    createTicketMessageDto: CreateTicketMessageDto
+  ): Promise<TicketMessageDTO> {
+    await this.ensureTicketExists(ticketId);
+
+    const message = await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        authorType: toPrismaMessageAuthorType(createTicketMessageDto.authorType ?? "ADMIN"),
+        ...(createTicketMessageDto.authorName ? { authorName: createTicketMessageDto.authorName } : {}),
+        ...(createTicketMessageDto.authorEmail ? { authorEmail: createTicketMessageDto.authorEmail } : {}),
+        body: createTicketMessageDto.body,
+        isInternal: false
+      }
+    });
+
+    return this.toTicketMessageDto(message);
+  }
+
+  async createInternalNote(
+    ticketId: string,
+    createInternalNoteDto: CreateInternalNoteDto
+  ): Promise<TicketMessageDTO> {
+    await this.ensureTicketExists(ticketId);
+
+    const message = await this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        authorType: TicketMessageAuthorType.ADMIN,
+        body: createInternalNoteDto.body,
+        isInternal: true
+      }
+    });
+
+    return this.toTicketMessageDto(message);
+  }
+
   async updateTicketStatus(
     id: string,
     updateTicketStatusDto: UpdateTicketStatusDto
@@ -359,6 +440,7 @@ export class TicketsService {
           ticketId: ticket.id,
           status: AiSuggestionStatus.GENERATED,
           suggestedReply: reply.replyDraft,
+          originalSuggestedReply: reply.replyDraft,
           suggestedCategory: classification.category,
           suggestedPriority: priority.priority,
           confidenceScore: averageConfidence([
@@ -446,6 +528,99 @@ export class TicketsService {
     }
   }
 
+  async approveAiSuggestion(
+    ticketId: string,
+    suggestionId: string,
+    approveAiSuggestionDto: ApproveAiSuggestionDto,
+    user: AuthenticatedUser
+  ): Promise<ApproveAiSuggestionResultDTO> {
+    const finalReply = approveAiSuggestionDto.finalReply.trim();
+    const note = approveAiSuggestionDto.note?.trim();
+
+    if (!finalReply) {
+      throw new BadRequestException("finalReply is required");
+    }
+
+    const [ticket, suggestion] = await Promise.all([
+      this.prisma.ticket.findUnique({
+        where: { id: ticketId },
+        select: { id: true }
+      }),
+      this.prisma.ticketAiSuggestion.findUnique({
+        where: { id: suggestionId }
+      })
+    ]);
+
+    if (!ticket) {
+      throw new NotFoundException("Ticket not found");
+    }
+
+    if (!suggestion) {
+      throw new NotFoundException("AI suggestion not found");
+    }
+
+    if (suggestion.ticketId !== ticket.id) {
+      throw new BadRequestException("AI suggestion does not belong to this ticket");
+    }
+
+    const originalReply = (suggestion.originalSuggestedReply ?? suggestion.suggestedReply)?.trim();
+
+    if (!originalReply) {
+      throw new BadRequestException("AI suggestion does not have an original suggested reply");
+    }
+
+    const editedBeforeApproval = finalReply !== originalReply;
+    const approvedAt = new Date();
+
+    const result = await this.prisma.$transaction(async (transaction) => {
+      const updatedSuggestion = await transaction.ticketAiSuggestion.update({
+        where: { id: suggestion.id },
+        data: {
+          status: editedBeforeApproval ? AiSuggestionStatus.EDITED : AiSuggestionStatus.APPROVED,
+          originalSuggestedReply: suggestion.originalSuggestedReply ?? suggestion.suggestedReply,
+          finalApprovedReply: finalReply,
+          approvedAt,
+          approvedByUserId: user.clerkUserId,
+          editedBeforeApproval
+        }
+      });
+      const ticketMessage = await transaction.ticketMessage.create({
+        data: {
+          ticketId: ticket.id,
+          authorType: TicketMessageAuthorType.ADMIN,
+          body: finalReply,
+          isInternal: false
+        }
+      });
+      const internalNote = note
+        ? await transaction.ticketMessage.create({
+            data: {
+              ticketId: ticket.id,
+              authorType: TicketMessageAuthorType.ADMIN,
+              body: note,
+              isInternal: true
+            }
+          })
+        : undefined;
+
+      return {
+        updatedSuggestion,
+        ticketMessage,
+        internalNote
+      };
+    });
+
+    this.realtimeService.emitTicketUpdated(ticket.id, {
+      latestAiSuggestion: this.toAiSuggestionSummaryDto(result.updatedSuggestion)
+    });
+
+    return {
+      suggestion: this.toAiSuggestionDto(result.updatedSuggestion),
+      ticketMessage: this.toTicketMessageDto(result.ticketMessage),
+      ...(result.internalNote ? { internalNote: this.toTicketMessageDto(result.internalNote) } : {})
+    };
+  }
+
   private async classifyTicket(ticket: TicketWithCustomerForAi): Promise<ClassificationOutput> {
     const output = await this.aiService.generateJson(
       buildClassifyTicketPrompt({
@@ -529,6 +704,17 @@ export class TicketsService {
     return where;
   }
 
+  private async ensureTicketExists(ticketId: string): Promise<void> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { id: true }
+    });
+
+    if (!ticket) {
+      throw new NotFoundException("Ticket not found");
+    }
+  }
+
   private toTicketDetailDto(ticket: TicketWithDetailRelations): AdminTicketDetailDTO {
     const customer = this.toCustomerDto(ticket.customer);
 
@@ -562,6 +748,10 @@ export class TicketsService {
       customerId: ticket.customerId,
       ...("customer" in ticket ? { customer: this.toCustomerDto(ticket.customer) } : {}),
       ...(latestAiSuggestion ? { latestAiSuggestion } : {}),
+      sla: calculateTicketSla({
+        createdAt: ticket.createdAt,
+        priority: ticket.priority
+      }),
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString()
     };
@@ -591,33 +781,42 @@ export class TicketsService {
     };
   }
 
-	  private toAiSuggestionDto(
-	    suggestion: Prisma.TicketAiSuggestionGetPayload<{}>
-	  ): AiSuggestionDTO {
-	    const retrievedContext = suggestion.retrievedContext ?? undefined;
-	    const summary = getSuggestionSummary(retrievedContext);
+  private toAiSuggestionDto(
+    suggestion: Prisma.TicketAiSuggestionGetPayload<{}>
+  ): AiSuggestionDTO {
+    const retrievedContext = suggestion.retrievedContext ?? undefined;
+    const summary = getSuggestionSummary(retrievedContext);
 
-	    return {
-	      id: suggestion.id,
-	      ticketId: suggestion.ticketId,
-	      status: toApiAiSuggestionStatus(suggestion.status),
-	      ...(summary ? { summary } : {}),
-	      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
-	      ...(suggestion.suggestedCategory
-	        ? { suggestedCategory: toApiCategory(suggestion.suggestedCategory) }
+    return {
+      id: suggestion.id,
+      ticketId: suggestion.ticketId,
+      status: toApiAiSuggestionStatus(suggestion.status),
+      ...(summary ? { summary } : {}),
+      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
+      ...(suggestion.originalSuggestedReply
+        ? { originalSuggestedReply: suggestion.originalSuggestedReply }
+        : {}),
+      ...(suggestion.finalApprovedReply
+        ? { finalApprovedReply: suggestion.finalApprovedReply }
+        : {}),
+      ...(suggestion.approvedAt ? { approvedAt: suggestion.approvedAt.toISOString() } : {}),
+      ...(suggestion.approvedByUserId ? { approvedByUserId: suggestion.approvedByUserId } : {}),
+      editedBeforeApproval: suggestion.editedBeforeApproval,
+      ...(suggestion.suggestedCategory
+        ? { suggestedCategory: toApiCategory(suggestion.suggestedCategory) }
         : {}),
       ...(suggestion.suggestedPriority
         ? { suggestedPriority: toApiPriority(suggestion.suggestedPriority) }
         : {}),
-	      ...(typeof suggestion.confidenceScore === "number"
-	        ? { confidenceScore: suggestion.confidenceScore }
-	        : {}),
-	      citations: [],
-	      ...(suggestion.ragSnippets ? { ragSnippets: suggestion.ragSnippets } : {}),
-	      ...(retrievedContext ? { retrievedContext } : {}),
-	      ...(suggestion.errorMessage ? { errorMessage: suggestion.errorMessage } : {}),
-	      createdAt: suggestion.createdAt.toISOString(),
-	      updatedAt: suggestion.updatedAt.toISOString()
+      ...(typeof suggestion.confidenceScore === "number"
+        ? { confidenceScore: suggestion.confidenceScore }
+        : {}),
+      citations: [],
+      ...(suggestion.ragSnippets ? { ragSnippets: suggestion.ragSnippets } : {}),
+      ...(retrievedContext ? { retrievedContext } : {}),
+      ...(suggestion.errorMessage ? { errorMessage: suggestion.errorMessage } : {}),
+      createdAt: suggestion.createdAt.toISOString(),
+      updatedAt: suggestion.updatedAt.toISOString()
     };
   }
 
@@ -626,10 +825,31 @@ export class TicketsService {
       id: suggestion.id,
       status: toApiAiSuggestionStatus(suggestion.status),
       ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
+      ...(suggestion.originalSuggestedReply
+        ? { originalSuggestedReply: suggestion.originalSuggestedReply }
+        : {}),
+      ...(suggestion.finalApprovedReply ? { finalApprovedReply: suggestion.finalApprovedReply } : {}),
+      ...(suggestion.approvedAt ? { approvedAt: suggestion.approvedAt.toISOString() } : {}),
+      ...(suggestion.approvedByUserId ? { approvedByUserId: suggestion.approvedByUserId } : {}),
+      editedBeforeApproval: suggestion.editedBeforeApproval,
       ...(typeof suggestion.confidenceScore === "number"
         ? { confidenceScore: suggestion.confidenceScore }
         : {}),
       createdAt: suggestion.createdAt.toISOString()
+    };
+  }
+
+  private toTicketMessageDto(message: Prisma.TicketMessageGetPayload<{}>): TicketMessageDTO {
+    return {
+      id: message.id,
+      ticketId: message.ticketId,
+      authorType: toApiMessageAuthorType(message.authorType),
+      ...(message.authorName ? { authorName: message.authorName } : {}),
+      ...(message.authorEmail ? { authorEmail: message.authorEmail } : {}),
+      body: message.body,
+      isInternal: message.isInternal,
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString()
     };
   }
 }
@@ -667,6 +887,15 @@ function toPrismaCategory(category: TicketCategoryParam): TicketCategory {
   };
 
   return categoryMap[category];
+}
+
+function toPrismaMessageAuthorType(authorType: TicketMessageAuthorTypeParam): TicketMessageAuthorType {
+  const authorTypeMap: Record<TicketMessageAuthorTypeParam, TicketMessageAuthorType> = {
+    ADMIN: TicketMessageAuthorType.ADMIN,
+    CUSTOMER: TicketMessageAuthorType.CUSTOMER
+  };
+
+  return authorTypeMap[authorType];
 }
 
 function toApiStatus(status: TicketStatus): ApiTicketStatus {
@@ -714,6 +943,17 @@ function toApiAiSuggestionStatus(status: AiSuggestionStatus) {
   };
 
   return statusMap[status];
+}
+
+function toApiMessageAuthorType(authorType: TicketMessageAuthorType): TicketMessageAuthorTypeDTO {
+  const authorTypeMap: Record<TicketMessageAuthorType, TicketMessageAuthorTypeDTO> = {
+    CUSTOMER: "customer",
+    ADMIN: "admin",
+    AI: "ai",
+    SYSTEM: "system"
+  };
+
+  return authorTypeMap[authorType];
 }
 
 function isPrismaNotFoundError(error: unknown): boolean {

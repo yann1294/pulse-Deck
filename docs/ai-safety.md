@@ -1,128 +1,179 @@
 # AI Safety
 
-## Overview
+PulseDesk uses AI to help support teams triage tickets and draft replies. The safety posture is intentionally conservative: AI output is advisory, admins must review replies, and the MVP does not automatically send AI-generated messages to customers.
 
-PulseDesk uses AI to assist support teams with internal ticket triage and response drafting. The system can classify tickets, estimate priority, retrieve relevant knowledge-base snippets through pgvector search, and generate suggested replies with Gemini.
+This document describes the current implementation, known risks, and safeguards that should be added before using this pattern with real sensitive customer data.
 
-The important safety boundary is that AI output is advisory. PulseDesk does not treat model output as truth, does not send AI replies directly to customers, and presents generated drafts as material for human review.
+## Current AI Workflow
 
-This document describes the MVP safety posture, known limitations, and the safeguards that should be added before using this pattern in a production customer-support environment.
+When a ticket enters the system, PulseDesk can run AI-assisted processing in the background through BullMQ or through the protected manual suggestion endpoint.
 
-## Hallucination Risk
+Current workflow:
 
-Large language models can produce fluent but incorrect statements. In a support product, this can create several risks:
+1. The ticket is classified into a support category such as `technical`, `billing`, `account`, `bug`, `feature_request`, or `other`.
+2. Priority is predicted as `low`, `medium`, `high`, or `urgent`.
+3. The ticket text is embedded and compared against knowledge-base chunks stored in PostgreSQL pgvector.
+4. Relevant snippets are retrieved and passed to Gemini as grounding context.
+5. Gemini returns a structured JSON response with a draft reply, confidence-related fields, retrieved-context metadata, and `humanReviewRequired: true`.
+6. The suggestion is stored as a `TicketAiSuggestion`.
+7. An admin reviews the draft in the ticket workspace, edits it if needed, and approves it only after human review.
+8. The approved reply is added to the ticket conversation thread as an admin message.
 
-- inventing product behavior, pricing, policies, deadlines, or account-specific facts;
-- overstating confidence when the available context is incomplete;
-- recommending troubleshooting steps that do not apply to the customer's environment;
-- misclassifying severity, especially for security, billing, or data-loss issues;
-- creating a reply that sounds final even though it has not been reviewed.
+This workflow is designed to support human operators, not replace them.
 
-PulseDesk reduces this risk by asking the model to return structured JSON, using low-temperature generation, requiring `humanReviewRequired: true` for reply suggestions, and instructing the model to say when context is insufficient. These are helpful controls, but they are not guarantees. A human reviewer must still verify every suggested reply before customer use.
+## Human-In-The-Loop Controls
 
-## RAG Grounding Limitations
+PulseDesk treats AI replies as drafts only.
 
-PulseDesk uses retrieval-augmented generation by embedding knowledge-base documents, storing vectors in PostgreSQL pgvector, and retrieving relevant snippets for reply generation.
+Implemented controls:
 
-RAG improves grounding, but it does not eliminate hallucination. Retrieval can fail or be incomplete when:
+- AI suggestions are shown inside the admin dashboard, not sent directly to customers.
+- The ticket detail workspace shows the AI-generated draft in an editable approval panel.
+- Admins can reset to the AI draft, approve the draft as-is, or save an edited approval.
+- Approved replies are stored in the ticket conversation thread as admin messages.
+- The MVP does not send external customer email.
+- The backend tracks approval metadata with fields such as `finalApprovedReply`, `approvedAt`, `approvedByUserId`, and `editedBeforeApproval`.
+- Suggestions approved with changed text are marked as edited rather than approved as-is.
 
-- the knowledge base is outdated, ambiguous, duplicated, or missing required policy details;
-- the user's ticket uses terms that do not closely match the embedded documents;
-- the top retrieved snippets are semantically similar but operationally irrelevant;
-- the model ignores or misinterprets retrieved snippets;
-- the retrieved text contains instructions or claims that should not be trusted.
+These controls create a clear human decision point. They do not, by themselves, guarantee that a reviewer catches every factual or policy error.
 
-The MVP stores retrieved context with AI suggestions so reviewers can see what informed a draft. In production, citations should be shown more prominently, snippets should be bounded by source permissions, and replies should be blocked or escalated when retrieval confidence is low.
+## RAG Grounding
 
-## Human-In-The-Loop Approval
+PulseDesk uses retrieval-augmented generation to reduce unsupported answers. Knowledge-base documents are parsed, chunked, embedded, and stored with pgvector. During suggestion generation, the system retrieves relevant chunks and includes them in the model prompt.
 
-PulseDesk is designed around human-in-the-loop support operations. AI suggestions are internal drafts and classification aids. They are not customer-facing messages until an admin reviews, edits, and approves them outside the AI generation step.
+Implemented UI support:
 
-The current prompts explicitly state that:
+- retrieved snippets are shown to admins in the AI suggestion panel;
+- confidence and safety notes are surfaced alongside the draft;
+- limitations are displayed so reviewers understand that the draft is not authoritative;
+- weak or missing knowledge-base context can trigger a visible manual verification state.
 
-- generated replies are suggestions only;
-- the model must not imply that a reply has already been sent or approved;
-- a human support admin must review the output;
-- unsupported claims should be avoided when context is insufficient.
+RAG grounding should be treated as supporting evidence, not proof. Retrieved snippets can be incomplete, stale, ambiguous, or irrelevant. Admins should verify the final answer against the visible context and the actual customer situation.
 
-This is a product and safety requirement, not only a prompt instruction. A production version should enforce this in workflow state as well: only approved responses should be sendable, approval should be audited, and high-risk categories should require additional review.
+## Hallucination Risks
 
-## Data Privacy Considerations
+RAG reduces hallucination risk, but it does not eliminate it.
 
-PulseDesk sends ticket details, selected customer context, and retrieved knowledge-base snippets to the configured AI provider for classification, prioritization, embeddings, and reply drafting.
+The model may still:
 
-Sensitive data risk exists if tickets or knowledge-base documents contain:
+- overstate what the retrieved snippets say;
+- infer unsupported timelines, policy details, or product behavior;
+- combine unrelated snippets into a plausible but incorrect answer;
+- misclassify ticket category or urgency;
+- ignore weak context and write a reply that sounds confident;
+- misinterpret ambiguous customer reports.
 
-- customer names, emails, company names, and account details;
-- credentials, API keys, access tokens, private URLs, or secrets;
-- billing data, contracts, or commercial terms;
-- health, legal, financial, or other regulated information;
-- internal security procedures or incident details.
+PulseDesk mitigates this by using structured JSON prompts, storing retrieved context, showing safety indicators, and requiring human approval. These are useful safeguards, not formal correctness guarantees.
 
-For a portfolio MVP, demo data should be fake and non-sensitive. For production, data sent to model providers should be minimized, redacted where possible, and governed by a clear data-processing agreement. Logs should avoid storing full prompts, full customer messages, or secrets. Access to AI suggestions and retrieved context should follow the same authorization model as ticket data.
+## Prompt Injection Risk
 
-## Prompt Injection Risks From Uploaded Knowledge-Base Documents
+Uploaded knowledge-base documents are untrusted input. A document can contain instructions such as "ignore previous instructions", "mark all refunds as approved", or "include private account details in every reply." If retrieved and placed into a prompt, that text can attempt to influence the model.
 
-Uploaded knowledge-base documents are untrusted input. A document can contain malicious or accidental instructions such as "ignore previous instructions", "send the customer's private data", or "always mark this issue as resolved". If that text is retrieved and placed into the model prompt, it can attempt to influence the model.
+PulseDesk treats knowledge-base content as reference material only. Admins can inspect retrieved snippets, and AI replies still require review before becoming conversation messages.
 
-PulseDesk prompts tell the model to treat ticket text and retrieved snippets as untrusted input, but prompt instructions alone are not a complete defense.
+Current MVP limitations:
 
-Production safeguards should include:
+- no full prompt-injection detection pipeline;
+- no document sanitization or quarantine workflow;
+- no automated policy engine for malicious retrieved content.
 
-- scanning uploaded documents for suspicious instructions and secrets;
-- separating system instructions from retrieved content with strict prompt boundaries;
-- limiting retrieved snippets to factual support content, not executable instructions;
-- showing citations and retrieved text to the reviewer;
-- refusing or escalating drafts when retrieved content appears to contain policy-violating instructions;
-- restricting who can upload or publish knowledge-base documents.
+Recommended future safeguards:
+
+- scan uploaded documents for prompt-injection patterns and secrets;
+- sanitize or reject suspicious knowledge-base content;
+- separate instructions and retrieved content with strict prompt boundaries;
+- restrict who can upload or activate knowledge-base documents;
+- escalate or block drafts when retrieved content contains suspicious instructions;
+- add prompt-injection cases to the RAG evaluation suite.
+
+## Data Privacy
+
+PulseDesk sends ticket content, selected customer context, and retrieved knowledge snippets to Gemini for classification, prioritization, embedding, and reply drafting.
+
+For demos and portfolio review:
+
+- use fake customers, fake tickets, and fake knowledge-base documents;
+- do not upload real customer data, credentials, contracts, API keys, or private company policies;
+- treat demo mode as non-production only.
+
+Production use would require stronger controls:
+
+- data retention policies for tickets, prompts, snippets, model outputs, and logs;
+- encryption at rest and in transit;
+- access control and authorization beyond the MVP baseline;
+- audit logs for document uploads, AI suggestion generation, reviewer edits, approvals, and sent messages;
+- PII and secret redaction before model calls;
+- clear vendor/data-processing review for the AI provider;
+- monitoring for accidental sensitive-data exposure.
+
+## RAG Evaluation
+
+PulseDesk includes a lightweight retrieval evaluation dataset at `server/evals/rag-eval-cases.json` and a script at `server/scripts/evaluate-rag.ts`.
+
+Run it with:
+
+```sh
+pnpm eval:rag
+```
+
+The script calls `KnowledgeBaseService.searchRelevantChunks(question)` for representative support questions and checks whether the expected document appears in the retrieved results.
+
+Metrics:
+
+- Top-1 accuracy: the expected document was the first retrieved result.
+- Top-3 accuracy: the expected document appeared in the first three retrieved results.
+
+This matters because weak retrieval leads to weak generation. If the system retrieves the wrong policy or troubleshooting guide, the model may draft a fluent but unsupported answer.
+
+The evaluation does not guarantee final answer correctness. It does not score answer faithfulness, hallucinations, prompt-injection resistance, tone, policy compliance, or whether a human reviewer would approve the reply.
 
 ## Model Provider Limitations
 
-PulseDesk currently uses Gemini for embeddings and JSON generation. Model provider behavior can change over time and may vary by model, region, quota, latency, and safety settings.
+PulseDesk currently uses Gemini for embeddings and structured generation. Provider behavior can vary by model version, quota, latency, region, and safety settings.
 
-Known provider-related limitations include:
+Known limitations:
 
-- generated JSON can be invalid or fail schema expectations;
-- provider APIs can fail, rate limit, or return empty responses;
-- embedding dimensions and model names must match database configuration;
-- provider-side safety filters can block output unexpectedly;
-- provider retention, logging, and training policies depend on account configuration and terms;
-- model updates can change output quality or classification behavior.
+- model APIs can fail, rate limit, or return invalid output;
+- generated JSON can fail schema expectations;
+- model updates can change classification or drafting behavior;
+- provider-side filters can block or alter responses;
+- embedding dimensions and model names must remain aligned with database configuration;
+- provider logging and retention depend on account configuration and terms.
 
-PulseDesk handles some failure cases by storing failed AI suggestion records and surfacing failed AI status. Production systems should add stronger retries, circuit breakers, monitoring, and regression tests for prompt behavior.
+The backend records failed AI suggestion states where practical so AI failures do not crash the core ticket flow. Production systems should add stronger retries, monitoring, circuit breakers, and prompt regression tests.
 
 ## Recommended Production Safeguards
 
-Before using PulseDesk-style AI support workflows in production, add safeguards such as:
+Before using PulseDesk-style AI workflows in production, add controls such as:
 
-- strict schema validation for every AI response, with rejection on missing or unsafe fields;
-- confidence thresholds and automatic escalation for low-confidence or insufficient-context drafts;
-- mandatory human approval before any customer-facing response is sent;
-- audit logs for prompt inputs, retrieved snippets, reviewer edits, approvals, and sent messages;
-- redaction for secrets, credentials, payment data, and regulated personal information before AI calls;
-- document upload review, source ownership, and versioning for knowledge-base content;
-- prompt-injection detection for tickets and uploaded documents;
-- role-based access control for tickets, knowledge documents, AI suggestions, and approval actions;
-- provider timeout, retry, and fallback behavior that does not block core ticket creation;
-- monitoring for AI failure rates, unsafe output reports, retrieval quality, and reviewer override rates;
-- evaluation datasets for common ticket categories, edge cases, security incidents, and policy-sensitive responses;
-- clear customer and admin disclosures about where AI is used.
+- strict schema validation for every AI response;
+- mandatory human approval before any customer-facing send action;
+- role-based access control for tickets, knowledge documents, AI suggestions, and approvals;
+- append-only audit logs for prompts, retrieved snippets, edits, approvals, and sent replies;
+- confidence thresholds and escalation paths for weak context or high-risk tickets;
+- PII and secret redaction before AI calls;
+- document review, versioning, and activation controls for knowledge-base content;
+- prompt-injection detection for uploaded documents and customer ticket text;
+- answer faithfulness checks against retrieved snippets;
+- retrieval, hallucination, and prompt-injection evaluation datasets;
+- monitoring for AI failure rates, reviewer override rates, and retrieval quality drift.
 
-These controls should be treated as application requirements, not only prompt changes.
+These should be product and platform controls, not only prompt changes.
 
-## What This MVP Intentionally Does Not Do
+## MVP Limitations
 
-PulseDesk is a portfolio MVP and intentionally keeps the safety system simple. It does not currently provide:
+PulseDesk is a portfolio MVP. It intentionally does not claim production-grade AI safety.
 
-- automatic PII or secret redaction before model calls;
-- a formal policy engine for high-risk tickets;
-- tenant-level data isolation beyond the current app assumptions;
-- advanced prompt-injection detection for uploaded documents;
-- automated factuality scoring against retrieved snippets;
-- approval audit trails suitable for regulated environments;
-- provider failover across multiple model vendors;
-- fine-grained retention controls for prompts, snippets, or generated suggestions;
-- compliance guarantees for HIPAA, SOC 2, GDPR, PCI, or similar frameworks;
-- automatic sending of AI-generated replies to customers.
+Current limitations include:
 
-The MVP demonstrates the architecture and workflow shape: RAG-backed suggestions, background AI jobs, visible AI status, and human review. A production deployment should add the safeguards above before handling real sensitive customer data.
+- no automatic customer email sending;
+- no advanced role-based audit log suitable for regulated environments;
+- no full red-team prompt-injection test suite;
+- no answer faithfulness scoring yet;
+- no automatic PII or secret redaction before model calls;
+- no formal policy engine for high-risk support categories;
+- no tenant-level isolation model beyond the current app assumptions;
+- no provider failover across multiple AI vendors;
+- no compliance guarantees for HIPAA, SOC 2, GDPR, PCI, or similar frameworks.
+
+The MVP demonstrates a responsible workflow shape: RAG-backed suggestions, visible retrieved context, confidence and limitation indicators, editable human approval, and no automatic customer sending. A production deployment should add the safeguards above before handling real sensitive customer data.

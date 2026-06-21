@@ -3,6 +3,7 @@ import { KnowledgeBasePreview } from "@/components/knowledge-base/KnowledgeBaseP
 import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Badge, ButtonLink, Card, SectionCard } from "@/components/ui";
+import { routes } from "@/lib/routes";
 
 const recruiterHighlights = [
   {
@@ -104,10 +105,10 @@ export default function Home() {
               infrastructure.
             </p>
             <div className="mx-auto mt-6 grid max-w-2xl grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center">
-              <ButtonLink className="col-span-2 w-full sm:w-auto" href="/dashboard" size="lg">
+              <ButtonLink className="col-span-2 w-full sm:w-auto" href={routes.dashboard()} size="lg">
                 View Admin Dashboard
               </ButtonLink>
-              <ButtonLink className="w-full sm:w-auto" href="/submit-ticket" size="lg" variant="secondary">
+              <ButtonLink className="w-full sm:w-auto" href={routes.submitTicket()} size="lg" variant="secondary">
                 Submit Demo Ticket
               </ButtonLink>
               <ButtonLink className="w-full sm:w-auto" href="#stack" size="lg" variant="ghost">
@@ -211,10 +212,10 @@ export default function Home() {
                 triage without blocking ticket creation.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <ButtonLink className="w-full sm:w-auto" href="/submit-ticket">
+                <ButtonLink className="w-full sm:w-auto" href={routes.submitTicket()}>
                   Open Ticket Submission
                 </ButtonLink>
-                <ButtonLink className="w-full sm:w-auto" href="/dashboard" variant="secondary">
+                <ButtonLink className="w-full sm:w-auto" href={routes.dashboard()} variant="secondary">
                   Review In Dashboard
                 </ButtonLink>
               </div>
@@ -262,10 +263,10 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-                  <ButtonLink className="w-full sm:w-auto" href="/dashboard">
+                  <ButtonLink className="w-full sm:w-auto" href={routes.dashboard()}>
                     Inspect The Demo
                   </ButtonLink>
-                  <ButtonLink className="w-full sm:w-auto" href="/submit-ticket" variant="secondary">
+                  <ButtonLink className="w-full sm:w-auto" href={routes.submitTicket()} variant="secondary">
                     Create A Ticket
                   </ButtonLink>
                 </div>

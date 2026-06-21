@@ -6,6 +6,10 @@ const isProtectedRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+  if (process.env.PLAYWRIGHT_MOCK_AUTH === "true") {
+    return;
+  }
+
   if (isProtectedRoute(request)) {
     await auth.protect({
       unauthenticatedUrl: new URL("/sign-in", request.url).toString()
