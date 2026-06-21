@@ -226,13 +226,13 @@ function TicketResults({
           <caption className="sr-only">Support ticket queue</caption>
           <thead className="border-b border-zinc-800 bg-zinc-900/70 text-xs uppercase tracking-[0.16em] text-zinc-400">
             <tr>
-              <th className="w-[28%] px-4 py-3 font-semibold" scope="col">Ticket</th>
-              <th className="w-[20%] px-4 py-3 font-semibold" scope="col">Customer</th>
-              <th className="w-[12%] px-4 py-3 font-semibold" scope="col">Status</th>
-              <th className="w-[12%] px-4 py-3 font-semibold" scope="col">Priority</th>
+              <th className="w-[24%] px-4 py-3 font-semibold" scope="col">Ticket</th>
+              <th className="w-[18%] px-4 py-3 font-semibold" scope="col">Customer</th>
+              <th className="w-[10%] px-4 py-3 font-semibold" scope="col">Status</th>
+              <th className="w-[10%] px-4 py-3 font-semibold" scope="col">Priority</th>
               <th className="w-[12%] px-4 py-3 font-semibold" scope="col">Category</th>
               <th className="w-[12%] px-4 py-3 font-semibold" scope="col">SLA</th>
-              <th className="w-[10%] px-4 py-3 font-semibold" scope="col">AI</th>
+              <th className="w-[8%] px-4 py-3 font-semibold" scope="col">AI</th>
               <th className="w-[6%] px-4 py-3 font-semibold" scope="col">Created</th>
             </tr>
           </thead>

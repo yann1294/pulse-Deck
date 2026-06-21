@@ -68,6 +68,7 @@ async function mockDashboardApi(page: Page): Promise<void> {
         ]
       }
     ],
+    [`/tickets/${ticket.id}/messages`, []],
     [
       "/customers",
       {
@@ -100,6 +101,7 @@ async function mockDashboardApi(page: Page): Promise<void> {
         ]
       }
     ],
+    [`/customers/${customer.id}/timeline`, []],
     [
       "/ai-suggestions",
       {
