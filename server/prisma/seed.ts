@@ -316,6 +316,12 @@ const suggestions = [
     confidenceScore: 0.89,
     suggestedReply:
       "Thanks for reaching out. The higher invoice is likely due to prorated charges from the Starter-to-Growth upgrade. Upgrades apply immediately, and the invoice includes the remaining billing period at the new plan rate minus unused time from the previous plan. If you share the workspace name and invoice month, I can help confirm the calculation.",
+    originalSuggestedReply:
+      "Thanks for reaching out. The higher invoice is likely due to prorated charges from the Starter-to-Growth upgrade. Upgrades apply immediately, and the invoice includes the remaining billing period at the new plan rate minus unused time from the previous plan. If you share the workspace name and invoice month, I can help confirm the calculation.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_billing_plan_changes",
@@ -328,12 +334,19 @@ const suggestions = [
     id: "demo_suggestion_mfa_reset",
     ticketId: "demo_ticket_login_mfa_reset",
     knowledgeDocumentId: "demo_kb_login_mfa",
-    status: AiSuggestionStatus.GENERATED,
+    status: AiSuggestionStatus.APPROVED,
     suggestedCategory: TicketCategory.ACCOUNT,
     suggestedPriority: TicketPriority.HIGH,
     confidenceScore: 0.86,
     suggestedReply:
       "We can help reset MFA after verifying the request through an account owner or workspace admin. Please have the affected user try a backup code first. If that is not available, an admin can reset MFA from the team member profile after confirming the user's identity. We will never ask for one-time passwords or backup codes.",
+    originalSuggestedReply:
+      "We can help reset MFA after verifying the request through an account owner or workspace admin. Please have the affected user try a backup code first. If that is not available, an admin can reset MFA from the team member profile after confirming the user's identity. We will never ask for one-time passwords or backup codes.",
+    finalApprovedReply:
+      "We can help reset MFA after verifying the request through an account owner or workspace admin. Please have the affected user try a backup code first. If that is not available, an admin can reset MFA from the team member profile after confirming the user's identity. We will never ask for one-time passwords or backup codes.",
+    approvedAt: new Date("2026-06-17T10:45:00.000Z"),
+    approvedByUserId: "demo_admin_user",
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_login_mfa",
@@ -346,12 +359,19 @@ const suggestions = [
     id: "demo_suggestion_security_sessions",
     ticketId: "demo_ticket_security_sessions",
     knowledgeDocumentId: "demo_kb_security",
-    status: AiSuggestionStatus.GENERATED,
+    status: AiSuggestionStatus.EDITED,
     suggestedCategory: TicketCategory.ACCOUNT,
     suggestedPriority: TicketPriority.URGENT,
     confidenceScore: 0.93,
     suggestedReply:
       "This should be treated as urgent. Please rotate the affected user's password, review active sessions, enable or confirm MFA, and rotate any API keys that may have been exposed. We can help revoke active sessions after identity verification, and we should avoid sharing tokens or sensitive logs in this ticket.",
+    originalSuggestedReply:
+      "This should be treated as urgent. Please rotate the affected user's password, review active sessions, enable or confirm MFA, and rotate any API keys that may have been exposed. We can help revoke active sessions after identity verification, and we should avoid sharing tokens or sensitive logs in this ticket.",
+    finalApprovedReply:
+      "Thanks for flagging this. Please rotate the affected user's password, confirm MFA is enabled, review active sessions, and rotate any API keys that could have been exposed. We can revoke active sessions after identity verification. Please avoid posting tokens, API keys, or sensitive logs in this ticket.",
+    approvedAt: new Date("2026-06-17T12:20:00.000Z"),
+    approvedByUserId: "demo_admin_user",
+    editedBeforeApproval: true,
     ragSnippets: [
       {
         documentId: "demo_kb_security",
@@ -370,6 +390,12 @@ const suggestions = [
     confidenceScore: 0.82,
     suggestedReply:
       "Thanks for the detailed logs. PulseDesk expects webhook endpoints to return a 2xx response within ten seconds without redirects. If your endpoint logs show 200 responses, please also check response timing, signing-secret validation, and whether an upstream proxy is returning a redirect or timeout before the final 200.",
+    originalSuggestedReply:
+      "Thanks for the detailed logs. PulseDesk expects webhook endpoints to return a 2xx response within ten seconds without redirects. If your endpoint logs show 200 responses, please also check response timing, signing-secret validation, and whether an upstream proxy is returning a redirect or timeout before the final 200.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_api_webhooks",
@@ -388,6 +414,12 @@ const suggestions = [
     confidenceScore: 0.78,
     suggestedReply:
       "A 14 MB PDF is below the 25 MB upload limit, so this may be browser, network, or PDF-processing related. Please confirm the browser version, whether the upload succeeds in an incognito window, and whether the PDF contains selectable text. If it still fails, we should capture the file metadata and escalate as an upload bug.",
+    originalSuggestedReply:
+      "A 14 MB PDF is below the 25 MB upload limit, so this may be browser, network, or PDF-processing related. Please confirm the browser version, whether the upload succeeds in an incognito window, and whether the PDF contains selectable text. If it still fails, we should capture the file metadata and escalate as an upload bug.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_uploads",
@@ -406,6 +438,12 @@ const suggestions = [
     confidenceScore: 0.81,
     suggestedReply:
       "Large ticket exports are processed asynchronously and emailed when ready. Since this export has been queued for more than thirty minutes, please share the workspace name and export date range so we can check the queued job and retry it if needed.",
+    originalSuggestedReply:
+      "Large ticket exports are processed asynchronously and emailed when ready. Since this export has been queued for more than thirty minutes, please share the workspace name and export date range so we can check the queued job and retry it if needed.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_exports",
@@ -424,6 +462,12 @@ const suggestions = [
     confidenceScore: 0.74,
     suggestedReply:
       "API keys are created by workspace admins from Developer Settings and should be stored in a secrets manager. I can confirm the current key options for your workspace and help identify the safest integration path for a reporting tool.",
+    originalSuggestedReply:
+      "API keys are created by workspace admins from Developer Settings and should be stored in a secrets manager. I can confirm the current key options for your workspace and help identify the safest integration path for a reporting tool.",
+    finalApprovedReply: null,
+    approvedAt: null,
+    approvedByUserId: null,
+    editedBeforeApproval: false,
     ragSnippets: [
       {
         documentId: "demo_kb_api_webhooks",

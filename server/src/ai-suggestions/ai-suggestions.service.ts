@@ -27,9 +27,15 @@ export interface AiSuggestionListItemDTO {
   status: ApiAiSuggestionStatus;
   model: string;
   createdAt: string;
+  updatedAt: string;
   priority: ApiTicketPriority;
   category: ApiTicketCategory;
   suggestedReply?: string;
+  originalSuggestedReply?: string;
+  finalApprovedReply?: string;
+  approvedAt?: string;
+  approvedByUserId?: string;
+  editedBeforeApproval: boolean;
 }
 
 type AiSuggestionWithTicket = Prisma.TicketAiSuggestionGetPayload<{
@@ -95,6 +101,8 @@ export class AiSuggestionsService {
       const search = query.search.trim();
       where.OR = [
         { suggestedReply: { contains: search, mode: "insensitive" } },
+        { originalSuggestedReply: { contains: search, mode: "insensitive" } },
+        { finalApprovedReply: { contains: search, mode: "insensitive" } },
         { errorMessage: { contains: search, mode: "insensitive" } },
         { ticket: { subject: { contains: search, mode: "insensitive" } } },
         { ticket: { customer: { name: { contains: search, mode: "insensitive" } } } },
@@ -121,9 +129,15 @@ export class AiSuggestionsService {
       status: toApiAiSuggestionStatus(suggestion.status),
       model: this.model,
       createdAt: suggestion.createdAt.toISOString(),
+      updatedAt: suggestion.updatedAt.toISOString(),
       priority: toApiPriority(suggestion.suggestedPriority ?? suggestion.ticket.priority),
       category: toApiCategory(suggestion.suggestedCategory ?? suggestion.ticket.category),
-      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {})
+      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
+      ...(suggestion.originalSuggestedReply ? { originalSuggestedReply: suggestion.originalSuggestedReply } : {}),
+      ...(suggestion.finalApprovedReply ? { finalApprovedReply: suggestion.finalApprovedReply } : {}),
+      ...(suggestion.approvedAt ? { approvedAt: suggestion.approvedAt.toISOString() } : {}),
+      ...(suggestion.approvedByUserId ? { approvedByUserId: suggestion.approvedByUserId } : {}),
+      editedBeforeApproval: suggestion.editedBeforeApproval
     };
   }
 }

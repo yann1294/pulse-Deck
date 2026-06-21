@@ -425,6 +425,7 @@ export class TicketsService {
           ticketId: ticket.id,
           status: AiSuggestionStatus.GENERATED,
           suggestedReply: reply.replyDraft,
+          originalSuggestedReply: reply.replyDraft,
           suggestedCategory: classification.category,
           suggestedPriority: priority.priority,
           confidenceScore: averageConfidence([
@@ -668,33 +669,42 @@ export class TicketsService {
     };
   }
 
-	  private toAiSuggestionDto(
-	    suggestion: Prisma.TicketAiSuggestionGetPayload<{}>
-	  ): AiSuggestionDTO {
-	    const retrievedContext = suggestion.retrievedContext ?? undefined;
-	    const summary = getSuggestionSummary(retrievedContext);
+  private toAiSuggestionDto(
+    suggestion: Prisma.TicketAiSuggestionGetPayload<{}>
+  ): AiSuggestionDTO {
+    const retrievedContext = suggestion.retrievedContext ?? undefined;
+    const summary = getSuggestionSummary(retrievedContext);
 
-	    return {
-	      id: suggestion.id,
-	      ticketId: suggestion.ticketId,
-	      status: toApiAiSuggestionStatus(suggestion.status),
-	      ...(summary ? { summary } : {}),
-	      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
-	      ...(suggestion.suggestedCategory
-	        ? { suggestedCategory: toApiCategory(suggestion.suggestedCategory) }
+    return {
+      id: suggestion.id,
+      ticketId: suggestion.ticketId,
+      status: toApiAiSuggestionStatus(suggestion.status),
+      ...(summary ? { summary } : {}),
+      ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
+      ...(suggestion.originalSuggestedReply
+        ? { originalSuggestedReply: suggestion.originalSuggestedReply }
+        : {}),
+      ...(suggestion.finalApprovedReply
+        ? { finalApprovedReply: suggestion.finalApprovedReply }
+        : {}),
+      ...(suggestion.approvedAt ? { approvedAt: suggestion.approvedAt.toISOString() } : {}),
+      ...(suggestion.approvedByUserId ? { approvedByUserId: suggestion.approvedByUserId } : {}),
+      editedBeforeApproval: suggestion.editedBeforeApproval,
+      ...(suggestion.suggestedCategory
+        ? { suggestedCategory: toApiCategory(suggestion.suggestedCategory) }
         : {}),
       ...(suggestion.suggestedPriority
         ? { suggestedPriority: toApiPriority(suggestion.suggestedPriority) }
         : {}),
-	      ...(typeof suggestion.confidenceScore === "number"
-	        ? { confidenceScore: suggestion.confidenceScore }
-	        : {}),
-	      citations: [],
-	      ...(suggestion.ragSnippets ? { ragSnippets: suggestion.ragSnippets } : {}),
-	      ...(retrievedContext ? { retrievedContext } : {}),
-	      ...(suggestion.errorMessage ? { errorMessage: suggestion.errorMessage } : {}),
-	      createdAt: suggestion.createdAt.toISOString(),
-	      updatedAt: suggestion.updatedAt.toISOString()
+      ...(typeof suggestion.confidenceScore === "number"
+        ? { confidenceScore: suggestion.confidenceScore }
+        : {}),
+      citations: [],
+      ...(suggestion.ragSnippets ? { ragSnippets: suggestion.ragSnippets } : {}),
+      ...(retrievedContext ? { retrievedContext } : {}),
+      ...(suggestion.errorMessage ? { errorMessage: suggestion.errorMessage } : {}),
+      createdAt: suggestion.createdAt.toISOString(),
+      updatedAt: suggestion.updatedAt.toISOString()
     };
   }
 
@@ -703,6 +713,13 @@ export class TicketsService {
       id: suggestion.id,
       status: toApiAiSuggestionStatus(suggestion.status),
       ...(suggestion.suggestedReply ? { suggestedReply: suggestion.suggestedReply } : {}),
+      ...(suggestion.originalSuggestedReply
+        ? { originalSuggestedReply: suggestion.originalSuggestedReply }
+        : {}),
+      ...(suggestion.finalApprovedReply ? { finalApprovedReply: suggestion.finalApprovedReply } : {}),
+      ...(suggestion.approvedAt ? { approvedAt: suggestion.approvedAt.toISOString() } : {}),
+      ...(suggestion.approvedByUserId ? { approvedByUserId: suggestion.approvedByUserId } : {}),
+      editedBeforeApproval: suggestion.editedBeforeApproval,
       ...(typeof suggestion.confidenceScore === "number"
         ? { confidenceScore: suggestion.confidenceScore }
         : {}),
