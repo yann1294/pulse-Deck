@@ -40,6 +40,11 @@ export interface AiSuggestionSummaryDTO {
   id: string;
   status: AiSuggestionStatus;
   suggestedReply?: string;
+  originalSuggestedReply?: string;
+  finalApprovedReply?: string;
+  approvedAt?: string;
+  approvedByUserId?: string;
+  editedBeforeApproval?: boolean;
   confidenceScore?: number;
   createdAt: string;
 }

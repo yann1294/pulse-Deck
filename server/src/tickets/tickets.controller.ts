@@ -1,12 +1,20 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import type { PaginatedResponse, TicketDTO } from "@pulsedesk/shared";
+import type { AuthenticatedUser } from "../auth/auth.types";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
+import { CurrentUser } from "../auth/current-user.decorator";
+import { ApproveAiSuggestionDto } from "./dto/approve-ai-suggestion.dto";
 import { CreateInternalNoteDto } from "./dto/create-internal-note.dto";
 import { CreateTicketDto } from "./dto/create-ticket.dto";
 import { CreateTicketMessageDto } from "./dto/create-ticket-message.dto";
 import { ListTicketsQueryDto } from "./dto/list-tickets-query.dto";
 import { UpdateTicketStatusDto } from "./dto/update-ticket-status.dto";
-import { TicketsService, type AdminTicketDetailDTO, type TicketMessageDTO } from "./tickets.service";
+import {
+  TicketsService,
+  type AdminTicketDetailDTO,
+  type ApproveAiSuggestionResultDTO,
+  type TicketMessageDTO
+} from "./tickets.service";
 
 @Controller("tickets")
 export class TicketsController {
@@ -57,6 +65,22 @@ export class TicketsController {
   @UseGuards(ClerkAuthGuard)
   generateAiSuggestion(@Param("id") id: string) {
     return this.ticketsService.generateAiSuggestion(id);
+  }
+
+  @Post(":ticketId/ai-suggestions/:suggestionId/approve")
+  @UseGuards(ClerkAuthGuard)
+  approveAiSuggestion(
+    @Param("ticketId") ticketId: string,
+    @Param("suggestionId") suggestionId: string,
+    @Body() approveAiSuggestionDto: ApproveAiSuggestionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ): Promise<ApproveAiSuggestionResultDTO> {
+    return this.ticketsService.approveAiSuggestion(
+      ticketId,
+      suggestionId,
+      approveAiSuggestionDto,
+      user
+    );
   }
 
   @Patch(":id/status")

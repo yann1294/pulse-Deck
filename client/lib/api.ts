@@ -66,6 +66,11 @@ export interface AiSuggestionListItemDTO {
   priority?: TicketPriority;
   category?: TicketCategory;
   suggestedReply?: string;
+  originalSuggestedReply?: string;
+  finalApprovedReply?: string;
+  approvedAt?: string;
+  approvedByUserId?: string;
+  editedBeforeApproval?: boolean;
   createdAt: string;
   updatedAt: string;
 }

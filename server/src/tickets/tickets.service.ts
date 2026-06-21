@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import {
   AiSuggestionStatus,
   Prisma,
@@ -20,10 +26,12 @@ import { AiService } from "../ai/ai.service";
 import { buildClassifyTicketPrompt } from "../ai/prompts/classify-ticket.prompt";
 import { buildPrioritizeTicketPrompt } from "../ai/prompts/prioritize-ticket.prompt";
 import { buildSuggestReplyPrompt } from "../ai/prompts/suggest-reply.prompt";
+import type { AuthenticatedUser } from "../auth/auth.types";
 import { KnowledgeBaseService, type KnowledgeSearchResultDTO } from "../knowledge-base/knowledge-base.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
 import { RealtimeService } from "../realtime/realtime.service";
+import type { ApproveAiSuggestionDto } from "./dto/approve-ai-suggestion.dto";
 import type { CreateInternalNoteDto } from "./dto/create-internal-note.dto";
 import type { CreateTicketDto } from "./dto/create-ticket.dto";
 import type { CreateTicketMessageDto, TicketMessageAuthorTypeParam } from "./dto/create-ticket-message.dto";
@@ -99,6 +107,12 @@ export interface GenerateAiSuggestionResultDTO {
     summary?: string;
     retrievedContext?: Prisma.JsonValue;
   };
+}
+
+export interface ApproveAiSuggestionResultDTO {
+  suggestion: AiSuggestionDTO;
+  ticketMessage?: TicketMessageDTO;
+  internalNote?: TicketMessageDTO;
 }
 
 export type TicketMessageAuthorTypeDTO = "customer" | "admin" | "ai" | "system";
@@ -511,6 +525,99 @@ export class TicketsService {
         `AI suggestion generation failed. A failed suggestion record was saved. Reason: ${failureMessage}`
       );
     }
+  }
+
+  async approveAiSuggestion(
+    ticketId: string,
+    suggestionId: string,
+    approveAiSuggestionDto: ApproveAiSuggestionDto,
+    user: AuthenticatedUser
+  ): Promise<ApproveAiSuggestionResultDTO> {
+    const finalReply = approveAiSuggestionDto.finalReply.trim();
+    const note = approveAiSuggestionDto.note?.trim();
+
+    if (!finalReply) {
+      throw new BadRequestException("finalReply is required");
+    }
+
+    const [ticket, suggestion] = await Promise.all([
+      this.prisma.ticket.findUnique({
+        where: { id: ticketId },
+        select: { id: true }
+      }),
+      this.prisma.ticketAiSuggestion.findUnique({
+        where: { id: suggestionId }
+      })
+    ]);
+
+    if (!ticket) {
+      throw new NotFoundException("Ticket not found");
+    }
+
+    if (!suggestion) {
+      throw new NotFoundException("AI suggestion not found");
+    }
+
+    if (suggestion.ticketId !== ticket.id) {
+      throw new BadRequestException("AI suggestion does not belong to this ticket");
+    }
+
+    const originalReply = (suggestion.originalSuggestedReply ?? suggestion.suggestedReply)?.trim();
+
+    if (!originalReply) {
+      throw new BadRequestException("AI suggestion does not have an original suggested reply");
+    }
+
+    const editedBeforeApproval = finalReply !== originalReply;
+    const approvedAt = new Date();
+
+    const result = await this.prisma.$transaction(async (transaction) => {
+      const updatedSuggestion = await transaction.ticketAiSuggestion.update({
+        where: { id: suggestion.id },
+        data: {
+          status: editedBeforeApproval ? AiSuggestionStatus.EDITED : AiSuggestionStatus.APPROVED,
+          originalSuggestedReply: suggestion.originalSuggestedReply ?? suggestion.suggestedReply,
+          finalApprovedReply: finalReply,
+          approvedAt,
+          approvedByUserId: user.clerkUserId,
+          editedBeforeApproval
+        }
+      });
+      const ticketMessage = await transaction.ticketMessage.create({
+        data: {
+          ticketId: ticket.id,
+          authorType: TicketMessageAuthorType.ADMIN,
+          body: finalReply,
+          isInternal: false
+        }
+      });
+      const internalNote = note
+        ? await transaction.ticketMessage.create({
+            data: {
+              ticketId: ticket.id,
+              authorType: TicketMessageAuthorType.ADMIN,
+              body: note,
+              isInternal: true
+            }
+          })
+        : undefined;
+
+      return {
+        updatedSuggestion,
+        ticketMessage,
+        internalNote
+      };
+    });
+
+    this.realtimeService.emitTicketUpdated(ticket.id, {
+      latestAiSuggestion: this.toAiSuggestionSummaryDto(result.updatedSuggestion)
+    });
+
+    return {
+      suggestion: this.toAiSuggestionDto(result.updatedSuggestion),
+      ticketMessage: this.toTicketMessageDto(result.ticketMessage),
+      ...(result.internalNote ? { internalNote: this.toTicketMessageDto(result.internalNote) } : {})
+    };
   }
 
   private async classifyTicket(ticket: TicketWithCustomerForAi): Promise<ClassificationOutput> {
