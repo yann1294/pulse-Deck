@@ -9,7 +9,7 @@ This guide describes a practical production-style deployment for the current imp
 Recommended deployment split:
 
 - Frontend: Vercel, deployed from `client/`.
-- Backend API: Railway or another container platform, deployed from `server/` with the repository root available as build context.
+- Backend API: Railway or another container platform, using `server/Dockerfile` with the repository root as Docker build context.
 - PostgreSQL: Railway, Supabase, Neon, or another provider with pgvector support.
 - Redis: Railway Redis or a managed Redis provider.
 - AI provider: Gemini API.

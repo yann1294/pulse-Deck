@@ -25,7 +25,8 @@ The workflow is:
 3. BullMQ workers classify the ticket, predict priority, retrieve relevant knowledge-base snippets, and generate a suggested reply.
 4. PostgreSQL stores tickets, customers, knowledge chunks, embeddings, and AI suggestions.
 5. Socket.IO emits ticket update events so the dashboard refreshes quickly.
-6. The admin reviews confidence, retrieved snippets, limitations, and the AI draft before taking action.
+6. The admin reviews confidence, retrieved snippets, limitations, and the AI draft before approving or editing the reply.
+7. Approved replies are added to the ticket conversation thread. The MVP does not send external customer email automatically.
 
 The product keeps ticket creation fast by moving expensive AI calls out of the request path.
 
@@ -58,10 +59,12 @@ The system is organized as a pnpm monorepo:
 
 - Built a responsive support dashboard with KPI cards, filtering, ticket list, mobile cards, loading states, empty states, error states, and realtime status indicators.
 - Implemented public ticket creation with DTO validation, customer upsert logic, queue enqueueing, and AI status tracking.
-- Added a ticket detail workspace with customer history, AI suggestion display, confidence score, retrieved snippets, limitations, and a disabled customer-send action for MVP safety.
+- Added a ticket detail workspace with ticket metadata, customer context, SLA indicators, conversation thread, internal notes, AI suggestion display, confidence score, retrieved snippets, limitations, and editable AI approval.
+- Added customer management with searchable customer profiles, recent ticket history, ticket metrics, and a derived activity timeline.
 - Created a knowledge-base workflow for PDF, TXT, and Markdown upload, text parsing, normalization, chunking, embedding generation, and document listing.
 - Added Socket.IO events for `ticket.updated` and `ticket.aiSuggestionReady`, with TanStack Query invalidation on the frontend.
 - Added backend tests for chunking behavior, strict AI JSON parsing, DTO validation, knowledge-base similarity search with mocks, and BullMQ enqueueing.
+- Added a lightweight RAG retrieval evaluation script that reports top-1 and top-3 retrieval accuracy for seeded support questions.
 - Documented local development, deployment, AI safety, architecture, and demo flow.
 
 ## AI/RAG Design
@@ -80,7 +83,7 @@ The AI prompt asks for strict JSON with:
 - human-review requirement;
 - internal notes.
 
-The frontend exposes this context instead of hiding it. If no knowledge-base context is found, the UI shows a visible manual-verification state. AI output is always treated as a draft requiring human review.
+The frontend exposes this context instead of hiding it. If no knowledge-base context is found, the UI shows a visible manual-verification state. AI output is always treated as a draft requiring human review. When an admin approves a reply, PulseDesk stores the final approved text and tracks whether it was edited before approval.
 
 ## DevOps Setup
 
@@ -118,13 +121,13 @@ Retrieval helps reduce hallucination, but it does not guarantee correctness. The
 
 ## What I Would Improve Next
 
-- Add a full reply editor and customer-send workflow with approval audit logs.
+- Add customer email sending after human approval, with approval audit logs.
 - Add tenant/workspace data isolation and role-based permissions.
 - Add prompt-injection and secret scanning for uploaded knowledge-base documents.
 - Add PII redaction before model calls.
 - Add document versioning, source ownership, and review status for knowledge-base content.
 - Add observability for queue latency, AI failure rates, retrieval quality, and reviewer edits.
-- Build an evaluation dataset for classification, priority prediction, and suggested replies.
+- Expand evaluation beyond retrieval into classification, priority prediction, answer faithfulness, hallucination checks, and suggested replies.
 - Add production-grade rate limiting and abuse protection for public ticket submission.
 
 ## CV Bullets

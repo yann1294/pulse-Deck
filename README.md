@@ -231,7 +231,7 @@ Run the optional NestJS server profile alongside PostgreSQL and Redis:
 docker compose --profile server up --build
 ```
 
-The server service builds from `./server`, depends on PostgreSQL and Redis, and exposes port `3001` by default for the containerized API.
+The server service uses `server/Dockerfile` with the repository root as Docker build context, depends on PostgreSQL and Redis, and exposes port `3001` by default for the containerized API.
 
 ## Testing
 

@@ -781,7 +781,7 @@ Request: `multipart/form-data`.
 
 Fields:
 
-- `file`: required file field. Supported parsing is based on current document parser implementation.
+- `file`: required file field. Supported extensions are `.txt`, `.md`, and `.pdf`.
 - `title`: optional string title override.
 
 Example response:
