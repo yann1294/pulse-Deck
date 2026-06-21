@@ -1,0 +1,99 @@
+[
+  {
+    "id": "rag_refund_policy_downgrade",
+    "question": "A customer downgraded after upgrading and is asking whether they get a refund or credit for the remaining billing cycle. What should support say?",
+    "expectedDocumentTitle": "Billing FAQ: Plan changes, invoices, and failed payments",
+    "expectedFacts": [
+      "Plan upgrades apply immediately and the remaining billing period is prorated.",
+      "Downgrades take effect at the next renewal date.",
+      "The demo knowledge base does not state a refund policy, so support should verify manually before promising a refund or credit.",
+      "Support should confirm workspace name, invoice month, and the last four digits of the card before escalating billing questions."
+    ],
+    "category": "billing"
+  },
+  {
+    "id": "rag_passwordless_reset_expired_link",
+    "question": "A user says their passwordless login link expires before they can sign in. What first checks should an agent recommend?",
+    "expectedDocumentTitle": "Login and multi-factor authentication troubleshooting",
+    "expectedFacts": [
+      "Ask the user to confirm they are using the correct workspace URL.",
+      "Ask the user to confirm they are using the correct email address.",
+      "Passwordless sign-in links expire after ten minutes.",
+      "Do not ask the user to share sensitive authentication codes."
+    ],
+    "category": "account"
+  },
+  {
+    "id": "rag_csv_export_queued",
+    "question": "A compliance team says their monthly CSV export has been queued for over an hour. What should support check?",
+    "expectedDocumentTitle": "Data export and reporting FAQ",
+    "expectedFacts": [
+      "Admins can export tickets from Reports > Exports.",
+      "Large exports are processed asynchronously and emailed when ready.",
+      "If an export remains queued for more than thirty minutes, support should check workspace size and retry the export job.",
+      "CSV exports use UTC timestamps and UTF-8 encoding."
+    ],
+    "category": "technical"
+  },
+  {
+    "id": "rag_webhook_retry_troubleshooting",
+    "question": "Webhook deliveries are retrying even though the endpoint logs show 200 responses. What troubleshooting points should the reply include?",
+    "expectedDocumentTitle": "API keys and webhook delivery guide",
+    "expectedFacts": [
+      "Webhook endpoints must return a 2xx response within ten seconds.",
+      "PulseDesk retries failed deliveries with exponential backoff for up to twenty-four hours.",
+      "Common failures include invalid signing secrets, endpoint timeouts, redirects, and firewalls blocking delivery IPs.",
+      "Support should ask the customer to verify timing, redirects, signing-secret validation, and network filtering."
+    ],
+    "category": "technical"
+  },
+  {
+    "id": "rag_workspace_invitation_sign_in",
+    "question": "A newly invited teammate cannot access the workspace. What grounded sign-in checks can support suggest before escalating the invitation issue?",
+    "expectedDocumentTitle": "Login and multi-factor authentication troubleshooting",
+    "expectedFacts": [
+      "The user should confirm they are using the correct workspace URL.",
+      "The user should confirm they are using the correct email address.",
+      "Passwordless sign-in links expire after ten minutes.",
+      "The demo knowledge base does not document workspace invitations directly, so invitation state should be manually verified before giving a definitive answer."
+    ],
+    "category": "account"
+  },
+  {
+    "id": "rag_upload_failure_pdf",
+    "question": "A 14 MB PDF knowledge-base upload fails near 80 percent in Chrome. What information should support request?",
+    "expectedDocumentTitle": "Attachment upload limits and supported file types",
+    "expectedFacts": [
+      "PulseDesk supports PDF, PNG, JPG, TXT, and Markdown uploads.",
+      "The maximum upload size for a single file is 25 MB.",
+      "For PDFs, text extraction works best when the PDF contains selectable text rather than scanned images.",
+      "If an upload fails, ask for file type, file size, browser, and whether it happens in an incognito window."
+    ],
+    "category": "bug"
+  },
+  {
+    "id": "rag_api_key_rotation_security",
+    "question": "A customer suspects an admin account was compromised and asks whether they should rotate API keys. What should support recommend?",
+    "expectedDocumentTitle": "Account security response checklist",
+    "expectedFacts": [
+      "For suspected account compromise, ask the customer to rotate passwords.",
+      "They should review active sessions and enable MFA.",
+      "They should rotate API keys.",
+      "Support may help an admin revoke sessions, but should not make ownership changes without identity verification.",
+      "Do not include sensitive logs, access tokens, or full API keys in ticket replies."
+    ],
+    "category": "account"
+  },
+  {
+    "id": "rag_unsupported_integration_manual_verification",
+    "question": "A customer asks whether PulseDesk supports a read-only API key for an unsupported internal reporting integration. What should the AI response avoid and what should it verify?",
+    "expectedDocumentTitle": "API keys and webhook delivery guide",
+    "expectedFacts": [
+      "API keys are created by workspace admins from Developer Settings.",
+      "API keys are shown once and should be stored in a secrets manager.",
+      "The demo knowledge base does not state that read-only API keys or the requested integration are supported.",
+      "The response should avoid inventing integration support and should flag the answer for manual verification."
+    ],
+    "category": "technical"
+  }
+]
