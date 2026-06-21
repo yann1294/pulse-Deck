@@ -215,7 +215,7 @@ function SuggestionResults({
             <div className="min-w-0">
               <div className="flex flex-wrap gap-2">
                 <AiStatusBadge status={suggestion.status} />
-                <ConfidenceBadge value={suggestion.confidenceScore} />
+                <ConfidenceBadge value={suggestion.confidenceScore ?? suggestion.confidence} />
               </div>
               <h2 className="mt-3 line-clamp-2 break-words text-sm font-semibold text-zinc-100">
                 {suggestion.ticketTitle}
@@ -226,9 +226,9 @@ function SuggestionResults({
               <p className="mt-1 break-all text-xs text-zinc-500">
                 {suggestion.customerEmail ?? "No email available"}
               </p>
-              {suggestion.suggestedReply ? (
+              {suggestion.suggestedReply || suggestion.summary ? (
                 <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">
-                  {suggestion.suggestedReply}
+                  {suggestion.suggestedReply ?? suggestion.summary}
                 </p>
               ) : null}
             </div>

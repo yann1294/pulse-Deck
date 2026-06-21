@@ -9,7 +9,7 @@ import type {
   TicketPriority,
   TicketStatus
 } from "@pulsedesk/shared";
-import { toApiClientError } from "./api-errors";
+import { ApiClientError, isApiClientError, toApiClientError } from "./api-errors";
 
 type TokenProvider = () => Promise<string | null>;
 
@@ -183,16 +183,19 @@ export async function listTickets(
 export async function listAiSuggestions(
   params: ListAiSuggestionsParams = {}
 ): Promise<PaginatedResponse<AiSuggestionListItemDTO>> {
-  const response = await request<PaginatedResponse<AiSuggestionListItemDTO>>({
-    method: "GET",
-    url: "/ai-suggestions",
-    params: {
-      status: params.status,
-      search: params.search,
-      page: params.page,
-      limit: params.limit
-    }
-  });
+  const response = await requestWithMessage<PaginatedResponse<AiSuggestionListItemDTO>>(
+    {
+      method: "GET",
+      url: "/ai-suggestions",
+      params: {
+        status: params.status,
+        search: params.search,
+        page: params.page,
+        limit: params.limit
+      }
+    },
+    "AI suggestions could not be loaded. Please retry in a moment."
+  );
 
   if (typeof params.minConfidence !== "number") {
     return response;
@@ -215,11 +218,14 @@ export async function listAiSuggestions(
 export async function listCustomers(
   params: ListCustomersParams = {}
 ): Promise<PaginatedResponse<CustomerListItemDTO>> {
-  const response = await request<PaginatedResponse<CustomerApiListItemDTO>>({
-    method: "GET",
-    url: "/customers",
-    params
-  });
+  const response = await requestWithMessage<PaginatedResponse<CustomerApiListItemDTO>>(
+    {
+      method: "GET",
+      url: "/customers",
+      params
+    },
+    "Customers could not be loaded. Please retry in a moment."
+  );
 
   return {
     ...response,
@@ -228,10 +234,23 @@ export async function listCustomers(
 }
 
 export async function getCustomer(customerId: string): Promise<CustomerDetailDTO | null> {
-  const response = await request<CustomerApiDetailDTO>({
-    method: "GET",
-    url: `/customers/${encodeURIComponent(customerId)}`
-  });
+  let response: CustomerApiDetailDTO;
+
+  try {
+    response = await requestWithMessage<CustomerApiDetailDTO>(
+      {
+        method: "GET",
+        url: `/customers/${encodeURIComponent(customerId)}`
+      },
+      "Customer details could not be loaded. Please retry in a moment."
+    );
+  } catch (error: unknown) {
+    if (isApiClientError(error) && error.statusCode === 404) {
+      return null;
+    }
+
+    throw error;
+  }
   const customer = toCustomerListItem(response.customer);
 
   return {
@@ -320,6 +339,23 @@ async function request<T>(config: AxiosRequestConfig): Promise<T> {
     return response.data;
   } catch (error: unknown) {
     throw toApiClientError(error);
+  }
+}
+
+async function requestWithMessage<T>(config: AxiosRequestConfig, message: string): Promise<T> {
+  try {
+    return await request<T>(config);
+  } catch (error: unknown) {
+    const apiError = toApiClientError(error);
+
+    if (apiError.statusCode === 401 || apiError.statusCode === 403 || apiError.statusCode === 404) {
+      throw apiError;
+    }
+
+    throw new ApiClientError(message, {
+      statusCode: apiError.statusCode,
+      requestId: apiError.requestId
+    });
   }
 }
 

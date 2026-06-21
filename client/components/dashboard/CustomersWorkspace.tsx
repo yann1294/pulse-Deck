@@ -235,9 +235,11 @@ export function CustomerDetailWorkspace({ customerId }: { customerId: string }) 
                             <PriorityBadge priority={ticket.priority} />
                           </div>
                         </div>
-                        <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">
-                          {ticket.description}
-                        </p>
+                        {ticket.description ? (
+                          <p className="mt-3 line-clamp-2 break-words text-sm leading-6 text-zinc-400">
+                            {ticket.description}
+                          </p>
+                        ) : null}
                       </button>
                     ))}
                   </div>
