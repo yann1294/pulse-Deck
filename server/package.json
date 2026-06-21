@@ -17,6 +17,7 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "tsx prisma/seed.ts",
     "demo:seed": "DEMO_MODE=true tsx prisma/seed.ts",
+    "eval:rag": "tsx scripts/evaluate-rag.ts",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
