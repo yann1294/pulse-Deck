@@ -58,7 +58,10 @@ export interface AiSuggestionListItemDTO {
   ticketTitle: string;
   customerName?: string;
   customerEmail?: string;
+  summary?: string;
   status: AiSuggestionStatus;
+  model?: string;
+  confidence?: number;
   confidenceScore?: number;
   priority?: TicketPriority;
   category?: TicketCategory;
@@ -180,52 +183,32 @@ export async function listTickets(
 export async function listAiSuggestions(
   params: ListAiSuggestionsParams = {}
 ): Promise<PaginatedResponse<AiSuggestionListItemDTO>> {
-  // MVP fallback: derive suggestions from ticket list data until GET /ai-suggestions exists.
-  const tickets = await listTickets({ page: 1, limit: params.limit ?? 100 });
-  const search = params.search?.trim().toLowerCase();
-  const suggestions = tickets.data
-    .flatMap((ticket) => {
-      if (ticket.aiSuggestions?.length) {
-        return ticket.aiSuggestions.map((suggestion) => toAiSuggestionListItem(ticket, suggestion));
-      }
+  const response = await request<PaginatedResponse<AiSuggestionListItemDTO>>({
+    method: "GET",
+    url: "/ai-suggestions",
+    params: {
+      status: params.status,
+      search: params.search,
+      page: params.page,
+      limit: params.limit
+    }
+  });
 
-      if (ticket.latestAiSuggestion) {
-        return [toAiSuggestionListItem(ticket, ticket.latestAiSuggestion)];
-      }
+  if (typeof params.minConfidence !== "number") {
+    return response;
+  }
 
-      return [];
-    })
-    .filter((suggestion) => !params.status || suggestion.status === params.status)
-    .filter((suggestion) => {
-      if (typeof params.minConfidence !== "number") {
-        return true;
-      }
+  const filteredSuggestions = response.data.filter((suggestion) => {
+    const confidence = suggestion.confidenceScore ?? suggestion.confidence;
 
-      return typeof suggestion.confidenceScore === "number" && suggestion.confidenceScore >= params.minConfidence;
-    })
-    .filter((suggestion) => {
-      if (!search) {
-        return true;
-      }
-
-      return [
-        suggestion.ticketTitle,
-        suggestion.customerName,
-        suggestion.customerEmail,
-        suggestion.suggestedReply,
-        suggestion.category,
-        suggestion.priority
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(search));
-    });
+    return typeof confidence === "number" && confidence >= params.minConfidence!;
+  });
 
   return {
-    data: suggestions,
-    page: params.page ?? 1,
-    pageSize: params.limit ?? suggestions.length,
-    totalItems: suggestions.length,
-    totalPages: suggestions.length > 0 ? 1 : 0
+    ...response,
+    data: filteredSuggestions,
+    totalItems: filteredSuggestions.length,
+    totalPages: filteredSuggestions.length > 0 ? 1 : 0
   };
 }
 
@@ -338,34 +321,6 @@ async function request<T>(config: AxiosRequestConfig): Promise<T> {
   } catch (error: unknown) {
     throw toApiClientError(error);
   }
-}
-
-function toAiSuggestionListItem(
-  ticket: TicketDTO,
-  suggestion: NonNullable<TicketDTO["latestAiSuggestion"]> | AiSuggestionDTO
-): AiSuggestionListItemDTO {
-  return {
-    id: suggestion.id,
-    ticketId: ticket.id,
-    ticketTitle: ticket.subject,
-    ...(ticket.customer?.name ? { customerName: ticket.customer.name } : {}),
-    ...(ticket.customer?.email ? { customerEmail: ticket.customer.email } : {}),
-    status: suggestion.status,
-    ...(typeof suggestion.confidenceScore === "number"
-      ? { confidenceScore: suggestion.confidenceScore }
-      : {}),
-    priority: "suggestedPriority" in suggestion && suggestion.suggestedPriority
-      ? suggestion.suggestedPriority
-      : ticket.priority,
-    category: "suggestedCategory" in suggestion && suggestion.suggestedCategory
-      ? suggestion.suggestedCategory
-      : ticket.category,
-    ...("suggestedReply" in suggestion && suggestion.suggestedReply
-      ? { suggestedReply: suggestion.suggestedReply }
-      : {}),
-    createdAt: suggestion.createdAt,
-    updatedAt: "updatedAt" in suggestion ? suggestion.updatedAt : suggestion.createdAt
-  };
 }
 
 function toCustomerListItem(customer: CustomerApiListItemDTO): CustomerListItemDTO {

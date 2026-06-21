@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { AiSuggestionsModule } from "./ai-suggestions/ai-suggestions.module";
 import { AiModule } from "./ai/ai.module";
 import { AuthModule } from "./auth/auth.module";
 import { CustomersModule } from "./customers/customers.module";
@@ -18,6 +19,7 @@ import { TicketsModule } from "./tickets/tickets.module";
     AuthModule,
     PrismaModule,
     TicketsModule,
+    AiSuggestionsModule,
     CustomersModule,
     KnowledgeBaseModule,
     AiModule,
