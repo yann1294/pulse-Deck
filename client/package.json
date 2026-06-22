@@ -5,6 +5,7 @@
   "description": "PulseDesk Next.js frontend.",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "pnpm --dir .. --filter @pulsedesk/shared build",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
