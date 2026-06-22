@@ -9,7 +9,7 @@ This guide describes a practical production-style deployment for the current imp
 Recommended deployment split:
 
 - Frontend: Vercel, deployed from `client/`.
-- Backend API: Railway or another container platform, using `server/Dockerfile` with the repository root as Docker build context.
+- Backend API: Railway or another container platform, using the root `Dockerfile` as the backend image.
 - PostgreSQL: Railway, Supabase, Neon, or another provider with pgvector support.
 - Redis: Railway Redis or a managed Redis provider.
 - AI provider: Gemini API.
@@ -63,10 +63,18 @@ Create a Railway service for the NestJS backend.
 Docker deployment:
 
 - Build context: repository root
-- Dockerfile path: `server/Dockerfile`
+- Dockerfile path: `Dockerfile`
 - Public port: `3001`
 
 The Dockerfile expects the monorepo root so it can copy `server/`, `packages/shared/`, and workspace lockfiles. Do not use `server/` as the only Docker build context unless the Dockerfile is rewritten for that layout.
+
+The container startup command should run migrations and then start the compiled NestJS server:
+
+```bash
+pnpm prisma migrate deploy && node dist/main.js
+```
+
+This keeps schema migrations automatic on deploy while avoiding repeated data seeding. Demo seed data should not be part of the Docker `CMD`, because the container can restart many times during deploys, scaling events, health checks, or platform maintenance. Seeding is a one-time setup step for a demo or staging database, not normal application startup.
 
 If not using Docker, use these commands:
 
@@ -161,6 +169,14 @@ The root equivalent is also available:
 pnpm db:migrate
 ```
 
+In Docker-based Railway deployments, migrations can be handled by the container startup command:
+
+```bash
+pnpm prisma migrate deploy && node dist/main.js
+```
+
+That command should run on every deploy. Demo seeding should not.
+
 Seed commands are available, but use them only in local, staging, or recruiter demo environments:
 
 ```bash
@@ -225,24 +241,53 @@ Production notes:
 
 ## 10. Demo Workspace Deployment
 
-For a recruiter demo, use a separate staging database and seed fake data:
+For a recruiter demo, use a separate staging database and seed fake data manually once.
+
+Do not put `pnpm demo:seed` in the Docker `CMD` or Railway start command. The app container may restart whenever Railway redeploys, performs health checks, changes environment variables, or scales services. Keeping seeding separate prevents accidental data churn and keeps normal deployments focused on two steps only:
+
+```bash
+pnpm prisma migrate deploy && node dist/main.js
+```
+
+The demo seed script is idempotent, so running it twice should not create duplicate demo customers, tickets, messages, AI suggestions, or knowledge-base documents. Still, treat it as a manual demo setup command, not an automatic startup task.
+
+Recommended Railway CLI flow:
+
+```bash
+railway login
+railway link
+railway service
+railway run pnpm --filter @pulsedesk/server demo:seed
+```
+
+Use `railway service` to select the backend service before running the seed. `railway run` injects the Railway service environment variables, including `DATABASE_URL`, so the script targets the deployed demo database instead of your local database.
+
+If you are already inside a Railway shell for the backend service, run:
+
+```bash
+pnpm --filter @pulsedesk/server demo:seed
+```
+
+For local development from the repository root, the shorter root script is also available:
 
 ```bash
 pnpm demo:seed
-```
-
-`demo:seed` runs the existing seed script with `DEMO_MODE=true`. The regular command is also available:
-
-```bash
-pnpm db:seed
 ```
 
 Recommended demo setup:
 
 - Use a dedicated demo database, not production.
 - Set `NEXT_PUBLIC_DEMO_MODE=true` in Vercel so the dashboard shows the Demo Workspace banner.
-- Keep backend `DEMO_MODE=false` for normal runtime; use `DEMO_MODE=true` only when running the demo seed command.
 - Do not upload real customer data, private company policies, or sensitive documents in demo mode.
+- Run the seed after migrations have completed successfully.
+
+Verify the seed:
+
+- Open the deployed dashboard.
+- Check that `/dashboard/tickets` shows demo tickets.
+- Check that `/dashboard/customers` shows demo customers.
+- Check that `/dashboard/ai-suggestions` shows generated, approved, edited, and failed examples.
+- Check that `/knowledge-base` shows the demo documents.
 
 ## 11. RAG Evaluation In Staging
 
@@ -309,6 +354,25 @@ Run `CREATE EXTENSION IF NOT EXISTS vector;` or enable pgvector through the prov
 
 Check `DATABASE_URL`, database permissions, network access, and pgvector availability. Use `pnpm --filter @pulsedesk/server db:migrate` for production migrations, not `migrate dev`.
 
+**`DATABASE_URL` missing during Railway seed**
+
+Run the seed through the selected Railway backend service:
+
+```bash
+railway service
+railway run pnpm --filter @pulsedesk/server demo:seed
+```
+
+If `DATABASE_URL` is still missing, add it to the backend service variables or connect the PostgreSQL plugin to the service.
+
+**Prisma Client is not generated**
+
+The Docker build should run `pnpm --filter @pulsedesk/server prisma:generate`. If you run commands outside the built container, run Prisma generation first:
+
+```bash
+pnpm --filter @pulsedesk/server prisma:generate
+```
+
 **Gemini invalid API key or model error**
 
 Confirm `GEMINI_API_KEY`, model names, billing, quota, and regional/model availability.
@@ -323,7 +387,15 @@ Update the Vercel environment variable and redeploy the frontend. Browser-expose
 
 **Railway build cannot find monorepo files**
 
-Use repository root as the Docker build context and `server/Dockerfile` as the Dockerfile path.
+Use repository root as the Docker build context and the root `Dockerfile` as the Dockerfile path.
+
+**Railway service not selected before `railway run`**
+
+Run `railway service` and select the backend service before seeding. Otherwise, the command may run with the wrong service environment variables.
+
+**Demo seed creates duplicates**
+
+Use the idempotent `pnpm --filter @pulsedesk/server demo:seed` script. Do not manually insert demo rows or run older non-idempotent seed scripts against the same database.
 
 **`Cannot find module '@nestjs/common'` at runtime**
 
