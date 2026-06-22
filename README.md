@@ -300,11 +300,36 @@ The worker updates tickets and AI suggestions, then emits Socket.IO events so th
 Recommended deployment split:
 
 - Frontend: Vercel project rooted at `client/`.
-- Backend API: Railway or another container platform using `server/Dockerfile`.
+- Backend API: Railway or another container platform using the root backend `Dockerfile`.
 - Database: PostgreSQL provider with pgvector support.
 - Queue: managed Redis.
 - Auth: Clerk production application.
 - AI: Gemini API key and model configuration.
+
+For Railway Docker deployments, the backend startup should run migrations and then start the compiled server:
+
+```sh
+pnpm prisma migrate deploy && node dist/main.js
+```
+
+Do not run demo seeding from the Docker `CMD` or start command. Demo data is a one-time setup step for a demo or staging database, and automatic seeding on every deploy can create avoidable data churn.
+
+Seed a Railway demo database manually with the Railway CLI:
+
+```sh
+railway login
+railway link
+railway service
+railway run pnpm --filter @pulsedesk/server demo:seed
+```
+
+If you are already inside a Railway shell for the backend service:
+
+```sh
+pnpm --filter @pulsedesk/server demo:seed
+```
+
+After seeding, verify the dashboard has demo tickets, customers, AI suggestions, and knowledge-base documents.
 
 Detailed deployment steps are in [docs/deployment.md](docs/deployment.md).
 
