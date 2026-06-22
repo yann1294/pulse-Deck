@@ -18,7 +18,7 @@ const prisma = new PrismaClient();
 const adminUser = {
   id: "demo_admin_user",
   clerkUserId: "user_demo_admin",
-  email: "admin@pulsedesk.dev",
+  email: "admin@demo.pulsedesk.dev",
   name: "Avery Brooks",
   role: UserRole.ADMIN
 };
@@ -27,28 +27,28 @@ const customers = [
   {
     id: "demo_customer_northstar",
     name: "Maya Chen",
-    email: "maya.chen@northstarcommerce.example",
+    email: "maya.chen@demo.pulsedesk.dev",
     companyName: "Northstar Commerce",
     externalId: "demo-customer-northstar"
   },
   {
     id: "demo_customer_apex",
     name: "Jordan Patel",
-    email: "jordan.patel@apexanalytics.example",
+    email: "jordan.patel@demo.pulsedesk.dev",
     companyName: "Apex Analytics",
     externalId: "demo-customer-apex"
   },
   {
     id: "demo_customer_riverline",
     name: "Elena Rodriguez",
-    email: "elena.rodriguez@riverlinehealth.example",
+    email: "elena.rodriguez@demo.pulsedesk.dev",
     companyName: "Riverline Health",
     externalId: "demo-customer-riverline"
   },
   {
     id: "demo_customer_harbor",
     name: "Samir Okafor",
-    email: "samir.okafor@harborlogistics.example",
+    email: "samir.okafor@demo.pulsedesk.dev",
     companyName: "Harbor Logistics",
     externalId: "demo-customer-harbor"
   }
@@ -61,7 +61,7 @@ const knowledgeDocuments = [
     fileName: "billing-faq.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-billing-faq.md",
+    sourceName: "demo/billing-faq.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/billing-faq",
     content: `# Billing FAQ
 
@@ -75,7 +75,7 @@ Invoices are emailed to workspace owners and can be downloaded from the billing 
     fileName: "account-security-guide.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-account-security-guide.md",
+    sourceName: "demo/account-security-guide.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/account-security",
     content: `# Account Security Guide
 
@@ -89,7 +89,7 @@ Support may help an admin revoke sessions, but should not make ownership changes
     fileName: "csv-export-troubleshooting.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-csv-export-troubleshooting.md",
+    sourceName: "demo/csv-export-troubleshooting.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/csv-export",
     content: `# CSV Export Troubleshooting
 
@@ -103,7 +103,7 @@ If an export remains queued for more than thirty minutes, support should check t
     fileName: "webhook-troubleshooting.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-webhook-troubleshooting.md",
+    sourceName: "demo/webhook-troubleshooting.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/webhooks",
     content: `# Webhook Troubleshooting
 
@@ -117,7 +117,7 @@ Common failures include invalid signing secrets, endpoint timeouts, redirects, a
     fileName: "workspace-invitations-guide.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-workspace-invitations-guide.md",
+    sourceName: "demo/workspace-invitations-guide.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/workspace-invitations",
     content: `# Workspace Invitations Guide
 
@@ -131,7 +131,7 @@ If an invite is not received, ask the admin to confirm the email address, resend
     fileName: "upload-troubleshooting.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-upload-troubleshooting.md",
+    sourceName: "demo/upload-troubleshooting.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/uploads",
     content: `# Upload Troubleshooting
 
@@ -145,7 +145,7 @@ For PDFs, text extraction works best when the PDF contains selectable text rathe
     fileName: "api-key-rotation-guide.md",
     mimeType: "text/markdown",
     sourceType: "demo",
-    sourceName: "demo-api-key-rotation-guide.md",
+    sourceName: "demo/api-key-rotation-guide.md",
     sourceUrl: "https://docs.pulsedesk.dev/demo/api-key-rotation",
     content: `# API Key Rotation Guide
 
@@ -296,7 +296,7 @@ function ticket(
   return {
     id,
     customerId,
-    subject,
+    subject: subject.startsWith("[DEMO]") ? subject : `[DEMO] ${subject}`,
     description,
     status,
     priority,
@@ -384,12 +384,24 @@ function message(
     ticketId,
     authorType,
     authorName,
-    authorEmail,
+    authorEmail: normalizeDemoEmail(authorEmail),
     body,
     isInternal,
     createdAt: new Date(createdAt),
     updatedAt: new Date(createdAt)
   };
+}
+
+function normalizeDemoEmail(email: string | undefined): string | undefined {
+  if (!email) {
+    return undefined;
+  }
+
+  if (email.endsWith("@demo.pulsedesk.dev")) {
+    return email;
+  }
+
+  return `${email.split("@")[0]}@demo.pulsedesk.dev`;
 }
 
 function toJson(value: unknown): Prisma.InputJsonValue {
