@@ -30,10 +30,16 @@ Recommended settings:
 - Build command:
 
 ```bash
-pnpm --filter @pulsedesk/shared build && pnpm --filter @pulsedesk/client build
+pnpm run build
 ```
 
-If Vercel installs from inside `client/` and cannot resolve `@pulsedesk/shared`, configure the project as a monorepo deployment from the repository root while keeping `client/` as the app directory.
+The client `prebuild` script compiles `@pulsedesk/shared` before `next build`, which prevents missing workspace type declarations during Vercel builds.
+
+If you configure Vercel from the repository root instead, use this build command:
+
+```bash
+pnpm --filter @pulsedesk/shared build && pnpm --filter @pulsedesk/client build
+```
 
 Frontend environment variables:
 
